@@ -80,8 +80,8 @@ You should see some output indicating the contract address, something lke
 The first address is the `Token` contract, the second is the `TTCTrading` contract. You can start the relay service up with
 
 ```bash
-BONSAI_RELAY_ADDRESS=0x5FbDB2315678afecb367f032d93F642f64180aa3 \
-  APP_ADDRESS=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0 \
+export BONSAI_RELAY_ADDRESS=0x5FbDB2315678afecb367f032d93F642f64180aa3; \                
+  export APP_ADDRESS=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0; \
   RISC0_DEV_MODE=true cargo run --bin bonsai-ethereum-relay-cli -- run --relay-address "$BONSAI_RELAY_ADDRESS"
 ```
 

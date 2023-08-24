@@ -154,6 +154,9 @@ contract TTCTrading is BonsaiCallbackReceiver {
                 delete trades[tokenIdsArray[i]];
                 delete ownersArray[i];
                 delete tokenIdsArray[i];
+                for (uint8 j = 0; j < preferenceListsArray[i].length; j++) {
+                    delete preferenceListsArray[i][j];
+                }
                 delete preferenceListsArray[i];
                 found = true;
                 break;
@@ -169,6 +172,7 @@ contract TTCTrading is BonsaiCallbackReceiver {
             }
         }
         submissionCounter = 0;
+        phase = TradePhase.TokenSubmission;
         emit PhaseChanged(TradePhase.TokenSubmission);
     }
 }

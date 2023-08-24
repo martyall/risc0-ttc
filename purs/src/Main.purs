@@ -58,7 +58,6 @@ main = do
   runAff_ (liftEffect <<< log <<< show) $ do
     appData <- mkAppData
     t <- buyTokens appData
-    Console.log $ show t
     transferTokensToTTC appData t
     Console.log "Transfered tokens to TTC"
     _ <- closeSubmissions appData
@@ -256,7 +255,6 @@ verifyPreferences appData _users = do
   let users = homogeneous _users
   let
     f { user, prefs } = assertWeb3 appData.provider $ do
-      Console.log $ "Finding ranking for " <> show user
       let
         txOpts = defaultTTCTxOpts appData
         ownerIdxs = (0 .. 5)
@@ -264,10 +262,9 @@ verifyPreferences appData _users = do
         eowner <- TTC.ownersArray txOpts Latest (unsafeToUInt ix)
         owner <- either (throwError <<< error <<< show) pure eowner
         when (owner == user) $ do
-          Console.log $ "owner at index " <> show ix <> " is " <> show eowner
+          Console.log $ "Finding ranking for " <> show user
           let prefIdxs = (0 .. (length prefs - 1))
           for_ prefIdxs \prefIndex -> do
-            Console.log $ "Checking preference at index " <> (show ix) <> ", " <> show prefIndex
             pref <- TTC.preferenceListsArray txOpts Latest (unsafeToUInt ix) (unsafeToUInt prefIndex)
             let trueVal = prefs !! prefIndex
             unless (Just pref == map Right trueVal)
