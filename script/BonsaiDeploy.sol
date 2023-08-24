@@ -18,12 +18,12 @@ pragma solidity ^0.8.17;
 
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
-import {IBonsaiRelay} from "bonsai/IBonsaiRelay.sol";
-import {BonsaiRelay} from "bonsai/BonsaiRelay.sol";
-import {BonsaiCheats} from "bonsai/BonsaiCheats.sol";
-import {BonsaiTestRelay} from "bonsai/BonsaiTestRelay.sol";
-import {RiscZeroGroth16Verifier} from "bonsai/groth16/RiscZeroGroth16Verifier.sol";
-import {IRiscZeroVerifier} from "bonsai/IRiscZeroVerifier.sol";
+import {IBonsaiRelay} from "lib/risc0/bonsai/ethereum/contracts/IBonsaiRelay.sol";
+import {BonsaiRelay} from "lib/risc0/bonsai/ethereum/contracts/BonsaiRelay.sol";
+import {BonsaiCheats} from "lib/risc0/bonsai/ethereum/contracts/BonsaiCheats.sol";
+import {BonsaiTestRelay} from "lib/risc0/bonsai/ethereum/contracts/BonsaiTestRelay.sol";
+import {RiscZeroGroth16Verifier} from "lib/risc0/bonsai/ethereum/contracts/groth16/RiscZeroGroth16Verifier.sol";
+import {IRiscZeroVerifier} from "lib/risc0/bonsai/ethereum/contracts/IRiscZeroVerifier.sol";
 
 /// @notice Base deployment script for Bonsai projects with Foundry and it's dependencies.
 /// @dev Use the following environment variables to control the deployment:
@@ -49,7 +49,9 @@ contract BonsaiDeploy is Script, BonsaiCheats {
         uint256 deployerKey = vm.envOr("DEPLOYER_PRIVATE_KEY", uint256(0));
 
         if (deployerAddr != address(0) && deployerKey != uint256(0)) {
-            revert("only one of DEPLOYER_ADDRESS or DEPLOYER_PRIVATE_KEY should be set");
+            revert(
+                "only one of DEPLOYER_ADDRESS or DEPLOYER_PRIVATE_KEY should be set"
+            );
         }
         if (deployerAddr != address(0)) {
             vm.startBroadcast(deployerAddr);
@@ -57,10 +59,14 @@ contract BonsaiDeploy is Script, BonsaiCheats {
             vm.startBroadcast(deployerKey);
         } else if (block.chainid == 31337) {
             // On an Anvil local testnet, use the first private key by default.
-            deployerKey = uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
+            deployerKey = uint256(
+                0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+            );
             vm.startBroadcast(deployerKey);
         } else {
-            revert("specify a deployer with either DEPLOYER_ADDRESS or DEPLOYER_PRIVATE_KEY");
+            revert(
+                "specify a deployer with either DEPLOYER_ADDRESS or DEPLOYER_PRIVATE_KEY"
+            );
         }
     }
 
@@ -75,13 +81,22 @@ contract BonsaiDeploy is Script, BonsaiCheats {
         } else {
             // Deploy an IRiscZeroVerifier contract instance. Relay is stateless and owner-less.
             IRiscZeroVerifier verifier;
-            address verifierAddr = vm.envOr("DEPLOY_VERFIER_ADDRESS", address(0));
+            address verifierAddr = vm.envOr(
+                "DEPLOY_VERFIER_ADDRESS",
+                address(0)
+            );
             if (verifierAddr != address(0)) {
-                console2.log("Using IRiscZeroVerifier at ", address(verifierAddr));
+                console2.log(
+                    "Using IRiscZeroVerifier at ",
+                    address(verifierAddr)
+                );
                 verifier = IRiscZeroVerifier(verifierAddr);
             } else {
                 verifier = new RiscZeroGroth16Verifier();
-                console2.log("Deployed RiscZeroGroth16Verifier to ", address(verifier));
+                console2.log(
+                    "Deployed RiscZeroGroth16Verifier to ",
+                    address(verifier)
+                );
             }
 
             bonsaiRelay = new BonsaiRelay(verifier);
@@ -103,7 +118,12 @@ contract BonsaiDeploy is Script, BonsaiCheats {
             // Use a long and unweildy environment variable name for overriding
             // the expected chain ID for the test relay so that it is hard to
             // trigger without thinking about it.
-            bonsaiRelay = new BonsaiTestRelay(vm.envOr("DEPLOY_BONSAI_TEST_RELAY_EXPECTED_CHAIN_ID", uint256(31337)));
+            bonsaiRelay = new BonsaiTestRelay(
+                vm.envOr(
+                    "DEPLOY_BONSAI_TEST_RELAY_EXPECTED_CHAIN_ID",
+                    uint256(31337)
+                )
+            );
             console2.log("Deployed BonsaiTestRelay to ", address(bonsaiRelay));
         }
         return bonsaiRelay;
@@ -128,7 +148,10 @@ contract BonsaiDeploy is Script, BonsaiCheats {
                 console2.log("No images uploaded to Bonsai");
             }
             for (uint256 i = 0; i < imageIds.length; i++) {
-                console2.log("Uploaded guest image to Bonsai", vm.toString(imageIds[i]));
+                console2.log(
+                    "Uploaded guest image to Bonsai",
+                    vm.toString(imageIds[i])
+                );
             }
         }
     }

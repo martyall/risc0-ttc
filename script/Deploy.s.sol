@@ -2,13 +2,12 @@
 
 pragma solidity ^0.8.17;
 
-import {Script} from "forge-std/Script.sol";
-import {console2} from "forge-std/console2.sol";
-import {IBonsaiRelay} from "bonsai/IBonsaiRelay.sol";
-import {BonsaiCheats} from "bonsai/BonsaiCheats.sol";
-
-import {BonsaiDeploy} from "./BonsaiDeploy.sol";
-import {BonsaiStarter} from "../contracts/BonsaiStarter.sol";
+import {Script} from "lib/forge-std/Script.sol";
+import {console2} from "lib/forge-std/console2.sol";
+import {IBonsaiRelay} from "lib/risc0/bonsai/ethereum/contracts/IBonsaiRelay.sol";
+import {BonsaiCheats} from "lib/risc0/bonsai/ethereum/contracts/BonsaiCheats.sol";
+import {Token} from "contracts/Token.sol";
+import {TTCTrading} from "contracts/TTCTrading.sol";
 
 /// @notice Deployment script for the BonsaiStarter project.
 /// @dev Use the following environment variables to control the deployment:
@@ -34,9 +33,14 @@ contract Deploy is Script, BonsaiCheats, BonsaiDeploy {
         uploadImages();
 
         // TEMPLATE: Modify this block to match your expected deployment.
-        bytes32 imageId = queryImageId("FIBONACCI");
-        console2.log("Image ID for FIBONACCI is ", vm.toString(imageId));
-        BonsaiStarter app = new BonsaiStarter(bonsaiRelay, imageId);
+        bytes32 imageId = queryImageId("TRADE");
+        console2.log("Image ID for TRADE is ", vm.toString(imageId));
+
+        Token token = new Token();
+        TTCTrading ttc = new TTCTrading(token, bonsaiRelay, imageId);
+        console.logAddress(address(token));
+        console.logAddress(address(ttc));
+
         console2.log("Deployed BonsaiStarter to ", address(app));
 
         vm.stopBroadcast();

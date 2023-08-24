@@ -4,7 +4,6 @@ pragma solidity ^0.8.17;
 import {IERC721} from "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
 import {IBonsaiRelay} from "lib/risc0/bonsai/ethereum/contracts/IBonsaiRelay.sol";
 import {BonsaiCallbackReceiver} from "lib/risc0/bonsai/ethereum/contracts/BonsaiCallbackReceiver.sol";
-import {Script, console} from "lib/forge-std/src/Script.sol";
 
 contract TTCTrading is BonsaiCallbackReceiver {
     uint8 public constant MAX_PARTICIPANTS = 6;
@@ -110,7 +109,6 @@ contract TTCTrading is BonsaiCallbackReceiver {
         emit PhaseChanged(phase);
 
         emit TokenDetailsEmitted(tokenIdsArray, preferenceListsArray);
-        console.log("TokenDetailsEmitted");
 
         bonsaiRelay.requestCallback(
             ttcImageId,
@@ -119,7 +117,6 @@ contract TTCTrading is BonsaiCallbackReceiver {
             this.storeResult.selector,
             _BONSAI_CALLBACK_GAS_LIMIT
         );
-        console.log("Requested Callback");
 
         phase = TradePhase.Distribution;
         emit PhaseChanged(phase);
