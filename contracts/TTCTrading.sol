@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import {IERC721} from "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
-import {IBonsaiRelay} from "lib/risc0/bonsai/ethereum/contracts/IBonsaiRelay.sol";
-import {BonsaiCallbackReceiver} from "lib/risc0/bonsai/ethereum/contracts/BonsaiCallbackReceiver.sol";
+import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
+import {IBonsaiRelay} from "bonsai/IBonsaiRelay.sol";
+import {BonsaiCallbackReceiver} from "bonsai/BonsaiCallbackReceiver.sol";
 
 contract TTCTrading is BonsaiCallbackReceiver {
     uint8 public constant MAX_PARTICIPANTS = 6;
 
     uint64 private constant _BONSAI_CALLBACK_GAS_LIMIT = 100000000;
 
-    /// @notice Image ID of the only zkVM binary to accept callbacks from.
+    /// @notice Image ID of the only zkVM binary to accept callbacks froma.
     bytes32 public immutable ttcImageId;
 
     IERC721 public token;
@@ -151,10 +151,24 @@ contract TTCTrading is BonsaiCallbackReceiver {
                     msg.sender,
                     trades[tokenIdsArray[i]]
                 );
+                delete trades[tokenIdsArray[i]];
+                delete ownersArray[i];
+                delete tokenIdsArray[i];
+                delete preferenceListsArray[i];
                 found = true;
                 break;
             }
         }
         require(found, "Token not found for user");
+    }
+
+    function reset() external inDistributionPhase {
+        for (uint8 i = 0; i < submissionCounter; i++) {
+            if (tokenIdsArray[i] != 0) {
+                revert("Contract is still open");
+            }
+        }
+        submissionCounter = 0;
+        emit PhaseChanged(TradePhase.TokenSubmission);
     }
 }

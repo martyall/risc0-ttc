@@ -8,7 +8,6 @@ import {IBonsaiRelay} from "bonsai/IBonsaiRelay.sol";
 import {BonsaiCheats} from "bonsai/BonsaiCheats.sol";
 
 import {BonsaiDeploy} from "./BonsaiDeploy.sol";
-import {BonsaiStarter} from "../contracts/BonsaiStarter.sol";
 
 import {Token} from "../contracts/Token.sol";
 import {TTCTrading} from "../contracts/TTCTrading.sol";

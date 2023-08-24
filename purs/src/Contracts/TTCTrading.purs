@@ -177,6 +177,11 @@ preferenceListsArray x1 x2 x3 x4 = preferenceListsArray' x1 x2 x3 x4
   preferenceListsArray' _x1 _x2 _x3 _x4 = map unTuple1 <$> call _x1 _x2
     (tagged $ Tuple2 _x3 _x4 :: PreferenceListsArrayFn)
 
+type ResetFn = Tagged (Proxy "reset()") Tuple0
+
+reset :: TransactionOptions NoPay -> Web3 HexString
+reset x1 = sendTx x1 (tagged Tuple0 :: ResetFn)
+
 type RetrieveTokenFn = Tagged (Proxy "retrieveToken()") Tuple0
 
 retrieveToken :: TransactionOptions NoPay -> Web3 HexString
