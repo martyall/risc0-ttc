@@ -56,6 +56,8 @@ Before you can do anything you need to build the project, meaning cloning all th
 > npm run build
 ```
 
+NOTE: This assumes you installed certian risc0 packages via `cargo install` and some `foundry` tools as is described in the README.
+
 Start the blockchain with anvil
 
 ```bash 
