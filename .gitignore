@@ -19,3 +19,10 @@ target/
 
 # Misc
 .idea
+
+node_modules
+.spago
+build
+output
+.vscode
+.psc-ide-port
