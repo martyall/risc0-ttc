@@ -44,6 +44,16 @@ There is a `purs` directory where you can find a `Main.purs` file. This is a scr
 
 
 ## Steps to run
+
+Before you can do anything you need to build the project, meaning cloning all the submodules and then running
+
+```bash
+> cargo build
+> npm i
+> npm run chanterelle-build
+> npm run build
+```
+
 Start the blockchain with anvil
 
 ```bash 
