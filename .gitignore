@@ -19,3 +19,6 @@ target/
 
 # Misc
 .idea
+
+node_modules
+.spago
