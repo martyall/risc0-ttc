@@ -76,6 +76,8 @@ main = do
     trades <- retrieveTokens appData t
     Console.log "Trades:\n"
     displayTrades trades
+    Console.log "Resetting contract"
+    resetContract appData
     Console.log "Done"
 
 type Users a =
@@ -349,6 +351,32 @@ displayTrades _users = do
   let users = homogeneous _users
   for_ users $ \{ user, prev, trade } ->
     Console.log $ "User " <> unHex (HexString.takeBytes 4 (unAddress user)) <> ": " <> show prev <> " ==> " <> show trade
+
+resetContract
+  :: AppData
+  -> Aff Unit
+resetContract appData = do
+  f <- forkWeb3 appData.provider awaitPhaseChange
+  _ <- assertWeb3 appData.provider $
+    let
+      txOpts = defaultTTCTxOpts appData #
+        _from ?~ appData.primaryAccount
+    in
+      TTC.reset txOpts
+  res <- joinFiber f
+  case res of
+    Left err -> throwError $ error $ "Failed to reset contract: " <> show err
+    Right _ -> pure unit
+
+  where
+  awaitPhaseChange =
+    let
+      monitor = \(TTC.PhaseChanged { newPhase }) -> do
+        Console.log $ "Phase changed to " <> show newPhase <> " (Reset)"
+        pure TerminateEvent
+      filter = eventFilter (Proxy :: Proxy TTC.PhaseChanged) appData.ttc
+    in
+      void $ pollEvent' { f: filter } { f: monitor }
 
 defaultTokenTxOpts :: AppData -> TransactionOptions NoPay
 defaultTokenTxOpts appData =
