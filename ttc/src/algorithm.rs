@@ -211,9 +211,10 @@ where
 #[cfg(test)]
 mod tests {
 
-  use algorithm::{PreferenceGraph, Preferences};
+  use super::*;
   
-  fn main() {
+  #[test]
+  fn basic_test() {
       let prefs = vec![
           ("S1", vec!["S3", "S2", "S4", "S1"]),
           ("S2", vec!["S3", "S5", "S6"]),
@@ -225,7 +226,7 @@ mod tests {
       let prefs = Preferences::new(prefs.into_iter().collect()).unwrap();
   
       let mut g = PreferenceGraph::new(prefs).unwrap();
-      let ps = g.solve_preferences().unwrap.res;
+      let ps = g.solve_preferences().unwrap().res;
       assert_eq!(
         vec![
             Cycle {
