@@ -1,4 +1,22 @@
-module Main where
+module Main
+  ( AppData
+  , TokenId
+  , Users
+  , awaitTTCResult
+  , awaitTransfer
+  , buyTokens
+  , closeRankings
+  , closeSubmissions
+  , defaultTTCTxOpts
+  , defaultTokenTxOpts
+  , main
+  , mkAppData
+  , rankTokens
+  , ranks
+  , retrieveTokens
+  , unsafeToUInt
+  , verifyPreferences
+  ) where
 
 import Prelude
 
@@ -14,12 +32,16 @@ import Data.Maybe (Maybe(..), fromJust)
 import Data.Traversable (for, for_, sequence, traverse_)
 import Effect (Effect)
 import Effect.Aff (Aff, error, joinFiber, runAff_, throwError)
+import Effect.Aff.AVar as AVar
+import Effect.Aff.Class (liftAff)
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Console
 import Effect.Console (log)
 import Effect.Random (randomInt)
 import Matrix (formatMatrix)
-import Network.Ethereum.Core.Signatures (nullAddress)
+import Network.Ethereum.Core.HexString (unHex)
+import Network.Ethereum.Core.HexString as HexString
+import Network.Ethereum.Core.Signatures (nullAddress, unAddress)
 import Network.Ethereum.Types (Address, HexString, embed, mkAddress, mkHexString)
 import Network.Ethereum.Web3 (ChainCursor(..), DLProxy(..), EventAction(..), Provider, TransactionOptions, UIntN, Web3, _from, _gas, _to, defaultTransactionOptions, eventFilter, forkWeb3, httpProvider, uIntNFromBigNumber)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
@@ -37,19 +59,23 @@ main = do
     appData <- mkAppData
     t <- buyTokens appData
     Console.log $ show t
-    _ <- transferTokensToTTC appData t
+    transferTokensToTTC appData t
     Console.log "Transfered tokens to TTC"
     _ <- closeSubmissions appData
     Console.log "Sealed the submissions"
     let ranking = ranks t
     Console.log $ show ranking
-    _ <- rankTokens appData ranking
+    rankTokens appData ranking
     Console.log "Ranked the tokens"
-    _ <- verifyPreferences appData ranking
+    verifyPreferences appData ranking
     Console.log "Verified the preferences in contract"
-    _ <- closeRankings appData
+    closeRankings appData
     Console.log "Emitted Data to Relay"
-    _ <- awaitTTCResult appData
+    awaitTTCResult appData
+    Console.log "Retrieving Tokens"
+    trades <- retrieveTokens appData t
+    Console.log "Trades:\n"
+    displayTrades trades
     Console.log "Done"
 
 type Users a =
@@ -101,16 +127,22 @@ mkAppData = do
 
 awaitTransfer
   :: AppData
-  -> Token.Transfer
-  -> Web3 Unit
-awaitTransfer appData transfer =
+  -> { from :: Address, to :: Address }
+  -> Web3 TokenId
+awaitTransfer appData { from, to } =
   let
-    mintMonitor = \e ->
-      if e == transfer then pure TerminateEvent
-      else pure ContinueEvent
+    mintMonitor var = \(Token.Transfer t) ->
+      if t.from == from && t.to == to then do
+        liftAff $ AVar.put t.tokenId var
+        pure TerminateEvent
+      else
+        pure ContinueEvent
     mintFilter = eventFilter (Proxy :: Proxy Token.Transfer) appData.token
   in
-    void $ pollEvent' { f: mintFilter } { f: mintMonitor }
+    do
+      var <- liftAff $ AVar.empty
+      void $ pollEvent' { f: mintFilter } { f: mintMonitor var }
+      liftAff $ AVar.take var
 
 buyTokens
   :: AppData
@@ -122,8 +154,8 @@ buyTokens appData = do
     pure { user, tokenId }
   mintFibers <-
     let
-      f { user, tokenId } = forkWeb3 appData.provider $
-        awaitTransfer appData (Token.Transfer { to: user, from: nullAddress, tokenId })
+      f { user } = forkWeb3 appData.provider $
+        awaitTransfer appData { to: user, from: nullAddress }
     in
       parTraverse f tokenIds
   _ <- assertWeb3 appData.provider $ for tokenIds $ \{ user, tokenId } ->
@@ -145,8 +177,8 @@ transferTokensToTTC appData _users = do
   let users = homogeneous _users
   transferFibers <-
     let
-      f { user, tokenId } = forkWeb3 appData.provider $
-        awaitTransfer appData (Token.Transfer { from: user, to: appData.ttc, tokenId })
+      f { user } = forkWeb3 appData.provider $
+        awaitTransfer appData { from: user, to: appData.ttc }
     in
       parTraverse f users
   _ <- assertWeb3 appData.provider $
@@ -281,6 +313,42 @@ awaitTTCResult appData =
     filter = eventFilter (Proxy :: Proxy TTC.TTCResult) appData.ttc
   in
     void $ assertWeb3 appData.provider $ pollEvent' { f: filter } { f: monitor }
+
+retrieveTokens
+  :: forall r
+   . AppData
+  -> Users { user :: Address, tokenId :: TokenId | r }
+  -> Aff (Users { user :: Address, prev :: TokenId, trade :: TokenId })
+retrieveTokens appData _users = do
+  let users = homogeneous _users
+  transferFibers <-
+    let
+      f { user, tokenId } = forkWeb3 appData.provider $ do
+        trade <- awaitTransfer appData { from: appData.ttc, to: user }
+        pure { user, prev: tokenId, trade }
+    in
+      parTraverse f users
+  _ <- assertWeb3 appData.provider $
+    let
+      f { user } = do
+        let
+          ttcOpts = defaultTTCTxOpts appData #
+            _from ?~ user
+        TTC.retrieveToken ttcOpts
+    in
+      parTraverse f users
+  res <- parTraverse joinFiber transferFibers
+  case sequence res of
+    Left err -> throwError $ error $ "Failed to find token all token transfers: " <> show err
+    Right a -> pure $ fromHomogeneous a
+
+displayTrades
+  :: Users { user :: Address, prev :: TokenId, trade :: TokenId }
+  -> Aff Unit
+displayTrades _users = do
+  let users = homogeneous _users
+  for_ users $ \{ user, prev, trade } ->
+    Console.log $ "User " <> unHex (HexString.takeBytes 4 (unAddress user)) <> ": " <> show prev <> " ==> " <> show trade
 
 defaultTokenTxOpts :: AppData -> TransactionOptions NoPay
 defaultTokenTxOpts appData =
