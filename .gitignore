@@ -24,3 +24,4 @@ node_modules
 .spago
 build
 output
+.vscode
