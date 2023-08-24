@@ -27,6 +27,8 @@ rustflags = [
     "-Dunused_parens",
     "-Dwhile_true",
 ]
+rustc-wrapper = "/home/martin/.cargo/bin/sccache"
+
 
 [net]
 git-fetch-with-cli = true

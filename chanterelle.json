@@ -1,0 +1,15 @@
+{
+    "name": "risc0-demo",
+    "version": "0.0.1",
+    "artifacts-dir": "build/contracts",
+    "source-dir": "contracts",
+    "modules": [ "Token"
+               , "TTCTrading"
+               ],
+    "dependencies": [],
+    "solc-output-selection": [],
+    "purescript-generator": {
+        "output-path": "./purs/src",
+        "module-prefix": "Contracts"
+    }
+}
