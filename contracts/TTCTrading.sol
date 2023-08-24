@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import {IERC721} from "../lib/bonsai-lib-sol/lib/murky/lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
-import {IBonsaiRelay} from "../lib/bonsai-lib-sol/src/IBonsaiRelay.sol";
-import {BonsaiCallbackReceiver} from "../lib/bonsai-lib-sol/src/BonsaiCallbackReceiver.sol";
-import {Script, console} from "../lib/forge-std/src/Script.sol";
+import {IERC721} from "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
+import {IBonsaiRelay} from "lib/risc0/bonsai/ethereum/contracts/IBonsaiRelay.sol";
+import {BonsaiCallbackReceiver} from "lib/risc0/bonsai/ethereum/contracts/BonsaiCallbackReceiver.sol";
+import {Script, console} from "lib/forge-std/src/Script.sol";
 
 contract TTCTrading is BonsaiCallbackReceiver {
     uint8 public constant MAX_PARTICIPANTS = 6;
