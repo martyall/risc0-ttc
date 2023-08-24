@@ -5,7 +5,6 @@ import Prelude
 import Chanterelle.Test (assertWeb3)
 import Contracts.TTCTrading as TTC
 import Contracts.Token as Token
-import Control.Monad.Reader (ask)
 import Control.Parallel (parTraverse)
 import Data.Array (length, (!!), (..))
 import Data.Either (Either(..), either)
@@ -21,8 +20,8 @@ import Effect.Console (log)
 import Effect.Random (randomInt)
 import Matrix (formatMatrix)
 import Network.Ethereum.Core.Signatures (nullAddress)
-import Network.Ethereum.Types (Address, HexString, embed, mkAddress, mkHexString, unHex)
-import Network.Ethereum.Web3 (ChainCursor(..), Change(..), DLProxy(..), EventAction(..), Provider, TransactionOptions, UIntN, Web3, _from, _gas, _to, defaultTransactionOptions, eventFilter, forkWeb3, httpProvider, uIntNFromBigNumber)
+import Network.Ethereum.Types (Address, HexString, embed, mkAddress, mkHexString)
+import Network.Ethereum.Web3 (ChainCursor(..), DLProxy(..), EventAction(..), Provider, TransactionOptions, UIntN, Web3, _from, _gas, _to, defaultTransactionOptions, eventFilter, forkWeb3, httpProvider, uIntNFromBigNumber)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
 import Network.Ethereum.Web3.Contract.Events (pollEvent')
 import Network.Ethereum.Web3.Solidity (unVector)
@@ -263,8 +262,6 @@ closeRankings appData = do
   awaitTokenDetailsEmitted =
     let
       tdeMonitor = \(TTC.TokenDetailsEmitted { tokenIds, preferenceLists }) -> do
-        (Change c) <- ask
-        Console.log $ unHex c.data
         Console.log $
           "Corresponds to preference matrix: \n" <>
             formatMatrix { header: unVector tokenIds, matrix: unVector preferenceLists }
