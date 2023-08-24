@@ -10,7 +10,7 @@ import Data.Lens (set)
 import Data.Maybe (Maybe(..), fromJust)
 import Data.Newtype (class Newtype)
 import Data.Show.Generic (genericShow)
-import Network.Ethereum.Web3 (Vector, class EventFilter, _address, _topics, call, deployContract, sendTx)
+import Network.Ethereum.Web3 (class EventFilter, _address, _topics, call, deployContract, sendTx)
 import Network.Ethereum.Web3.Contract.Internal (uncurryFields)
 import Network.Ethereum.Web3.Solidity (BytesN, D2, D3, D5, D6, D8, DOne, UIntN, Tuple0(..), Tuple1(..), Tuple2(..), Tuple3(..), class IndexedEvent, unTuple1)
 import Network.Ethereum.Web3.Solidity.Size (type (:&))
@@ -90,8 +90,8 @@ instance
   isAnonymous _ = false
 
 newtype TokenDetailsEmitted = TokenDetailsEmitted
-  { tokenIds :: Vector (DOne D6) (UIntN (D2 :& D5 :& DOne D6))
-  , preferenceLists :: Vector (DOne D6) (Array (UIntN (D2 :& D5 :& DOne D6)))
+  { tokenIds :: Array (UIntN (D2 :& D5 :& DOne D6))
+  , preferenceLists :: Array (Array (UIntN (D2 :& D5 :& DOne D6)))
   }
 
 derive instance Newtype TokenDetailsEmitted _
@@ -106,7 +106,7 @@ instance EventFilter TokenDetailsEmitted where
   eventFilter _ addr = defaultFilter # set _address (Just addr) # set _topics
     ( Just
         [ Just $ unsafePartial $ fromJust $ mkHexString
-            "e58780ba0390d72735fcc7f1706d8541c5cf7cfc291290971765006618f619fb"
+            "3fdd1a9f0693c4be0369a67dec36473432a16699bd5583b7a58a957c7c59d699"
         , Nothing
         , Nothing
         ]
@@ -114,8 +114,8 @@ instance EventFilter TokenDetailsEmitted where
 
 instance
   IndexedEvent Tuple0
-    ( Tuple2 (Tagged (Proxy "tokenIds") (Vector (DOne D6) (UIntN (D2 :& D5 :& DOne D6))))
-        (Tagged (Proxy "preferenceLists") (Vector (DOne D6) (Array (UIntN (D2 :& D5 :& DOne D6)))))
+    ( Tuple2 (Tagged (Proxy "tokenIds") (Array (UIntN (D2 :& D5 :& DOne D6))))
+        (Tagged (Proxy "preferenceLists") (Array (Array (UIntN (D2 :& D5 :& DOne D6)))))
     )
     TokenDetailsEmitted where
   isAnonymous _ = false

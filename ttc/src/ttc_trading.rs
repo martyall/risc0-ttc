@@ -22,11 +22,11 @@ pub mod contract {
   )]
   #[ethevent(
       name = "TokenDetailsEmitted",
-      abi = "TokenDetailsEmitted(uint256[6],uint256[][6])"
+      abi = "TokenDetailsEmitted(uint256[],uint256[][])"
   )]
   pub struct TokenDetailsEmittedFilter {
-      pub token_ids: [::ethers_core::types::U256; 6],
-      pub preference_lists: [::std::vec::Vec<::ethers_core::types::U256>; 6],
+      pub token_ids: ::std::vec::Vec<::ethers_core::types::U256>,
+      pub preference_lists: ::std::vec::Vec<::std::vec::Vec<::ethers_core::types::U256>>,
   }
   
   
@@ -48,7 +48,7 @@ pub mod contract {
 }
 
 pub fn decode_input(log_data: Vec<u8>) -> algorithm::PreferenceGraph<U256> {
-    let topic_str: &str = "e58780ba0390d72735fcc7f1706d8541c5cf7cfc291290971765006618f619fb";
+    let topic_str: &str = "3fdd1a9f0693c4be0369a67dec36473432a16699bd5583b7a58a957c7c59d699";
 
     let logs: RawLog = RawLog {
         topics: vec![<H256>::decode_hex(topic_str).unwrap()],

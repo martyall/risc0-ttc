@@ -24,16 +24,13 @@ contract TTCTrading is BonsaiCallbackReceiver {
     TradePhase public phase = TradePhase.TokenSubmission;
 
     event PhaseChanged(TradePhase newPhase);
-    event TokenDetailsEmitted(
-        uint256[MAX_PARTICIPANTS] tokenIds,
-        uint256[][MAX_PARTICIPANTS] preferenceLists
-    );
+    event TokenDetailsEmitted(uint256[] tokenIds, uint256[][] preferenceLists);
 
     event TTCResult(uint256[][] result);
 
-    address[MAX_PARTICIPANTS] public ownersArray;
-    uint256[MAX_PARTICIPANTS] public tokenIdsArray;
-    uint256[][MAX_PARTICIPANTS] public preferenceListsArray;
+    address[] public ownersArray;
+    uint256[] public tokenIdsArray;
+    uint256[][] public preferenceListsArray;
     uint8 public submissionCounter = 0;
     mapping(uint => uint) trades;
 
@@ -80,8 +77,8 @@ contract TTCTrading is BonsaiCallbackReceiver {
 
         token.transferFrom(msg.sender, address(this), _tokenId); // Transfers the token to this contract
 
-        ownersArray[submissionCounter] = msg.sender;
-        tokenIdsArray[submissionCounter] = _tokenId;
+        ownersArray.push(msg.sender);
+        tokenIdsArray.push(_tokenId);
         submissionCounter++;
     }
 

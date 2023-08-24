@@ -46,7 +46,6 @@ import Network.Ethereum.Types (Address, HexString, embed, mkAddress, mkHexString
 import Network.Ethereum.Web3 (ChainCursor(..), DLProxy(..), EventAction(..), Provider, TransactionOptions, UIntN, Web3, _from, _gas, _to, defaultTransactionOptions, eventFilter, forkWeb3, httpProvider, uIntNFromBigNumber)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
 import Network.Ethereum.Web3.Contract.Events (pollEvent')
-import Network.Ethereum.Web3.Solidity (unVector)
 import Network.Ethereum.Web3.Solidity.Sizes (S256)
 import Network.Ethereum.Web3.Types (NoPay)
 import Node.Process (lookupEnv)
@@ -58,6 +57,8 @@ main = do
   runAff_ (liftEffect <<< log <<< show) $ do
     appData <- mkAppData
     t <- buyTokens appData
+    Console.log "Bought tokens for users"
+    Console.log $ show t
     transferTokensToTTC appData t
     Console.log "Transfered tokens to TTC"
     _ <- closeSubmissions appData
@@ -265,6 +266,7 @@ verifyPreferences appData _users = do
           Console.log $ "Finding ranking for " <> show user
           let prefIdxs = (0 .. (length prefs - 1))
           for_ prefIdxs \prefIndex -> do
+            Console.log $ show ix <> ", " <> show prefIndex 
             pref <- TTC.preferenceListsArray txOpts Latest (unsafeToUInt ix) (unsafeToUInt prefIndex)
             let trueVal = prefs !! prefIndex
             unless (Just pref == map Right trueVal)
@@ -295,7 +297,7 @@ closeRankings appData = do
       tdeMonitor = \(TTC.TokenDetailsEmitted { tokenIds, preferenceLists }) -> do
         Console.log $
           "Corresponds to preference matrix: \n" <>
-            formatMatrix { header: unVector tokenIds, matrix: unVector preferenceLists }
+            formatMatrix { header: tokenIds, matrix: preferenceLists }
         pure TerminateEvent
       tdeFilter = eventFilter (Proxy :: Proxy TTC.TokenDetailsEmitted) appData.ttc
     in
