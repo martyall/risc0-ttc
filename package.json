@@ -2,8 +2,8 @@
   "name": "uni",
   "private": true,
   "scripts": {
+    "postinstall": "spago -x spago.dhall build --deps-only",
     "build": "spago -x spago.dhall build",
-    "postinstall": "spago -x spago.dhall install",
     "format": "purs-tidy format-in-place purs/src ",
     "chanterelle-build": "chanterelle build"
   },
