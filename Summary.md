@@ -5,13 +5,11 @@ This repo contains a smart contract + risc0 coprocessor implementation of the [T
 
 ## Why?
 
-The reason I thought this would be a good project is that it is of medium complexity and I believe it is generally useful. The current methods for trading
+The reason I thought this would be a good project is because it is of medium complexity, not already implemented (afaik), and I believe it is generally useful. The current methods for trading
 NFTs most often involve liquidating one in some sort of auction contract and attempting to purchase another with the royalties. In some cases a direct
 transfer would not only be cheaper for everyone involved in terms of transaction costs and time, but it also might better fit the domain of the NFTs. The problem
-is that direct transfer is inefficient and requires a very particular configuration of the market. TTC creates a more fluid marketplace to facilitate more trades
-in an optimal manner. It is complicated enough to implement that coding it in solidity would be a terrible idea -- not only would it almost surely be riddled with
-bugs, but the costs of running it on chain would make the whole contract moot. Offloading it to a risc0 coprocessor makes way more sense, it solves the cost problem
-and allows you to take advantage of the battle tested rust libraries to implement the algorithm.
+is that direct transfer is inefficient and requires a very particular configuration of the market. TTC creates a more fluid marketplace to facilitate more trades in an optimal manner. It is complicated enough to implement that coding it in solidity would be a terrible idea -- not only would it surely be riddled with
+bugs, but the high costs of running it on chain would make the whole contract moot. Offloading it to a risc0 coprocessor makes way more sense, it solves the cost problem and allows you to take advantage of the battle tested rust libraries to implement the algorithm.
 
 ## Components
 
@@ -40,7 +38,7 @@ for use by the relay's callback transaction.
 
 ### Simulation Script
 
-There is a `purs` directory where you can find a `Main.purs` file. This is a script (written in PureScript) which tests the application life cycle for a given example. This script uses the [purescript-web3](https://github.com/f-o-a-m/purescript-web3), as well as [chanterelle](https://github.com/f-o-a-m/chanterelle) to generate the FFI bindings to the contracts. The reason is that I am the primary author of both of these libraries, so I am particularly effective in using them.
+There is a `purs` directory where you can find a `Main.purs` file. This is a script (written in PureScript) which tests the application life cycle for a given example. This script uses the [purescript-web3](https://github.com/f-o-a-m/purescript-web3) library, as well as [chanterelle](https://github.com/f-o-a-m/chanterelle) to generate the FFI bindings to the contracts. The reason is that I am the primary author of both of these libraries, so I am particularly effective in using them.
 
 
 ## Steps to run
