@@ -40,7 +40,8 @@ contract Deploy is Script, BonsaiCheats, BonsaiDeploy {
         console2.log("Image ID for TRADE is ", vm.toString(imageId));
 
         Token token = new Token();
-        TTCTrading ttc = new TTCTrading(token, bonsaiRelay, imageId);
+        // set the max participants to 6 for demo
+        TTCTrading ttc = new TTCTrading(token, bonsaiRelay, imageId, 6);
         console2.logAddress(address(token));
         console2.logAddress(address(ttc));
 

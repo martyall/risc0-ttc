@@ -63,6 +63,35 @@ instance EventFilter PhaseChanged where
 instance IndexedEvent Tuple0 (Tuple1 (Tagged (Proxy "newPhase") (UIntN (DOne D8)))) PhaseChanged where
   isAnonymous _ = false
 
+newtype RankingSubmitted = RankingSubmitted
+  { owner :: Address, ranking :: Array (UIntN (D2 :& D5 :& DOne D6)) }
+
+derive instance Newtype RankingSubmitted _
+derive instance Generic RankingSubmitted _
+instance Show RankingSubmitted where
+  show = genericShow
+
+instance Eq RankingSubmitted where
+  eq = genericEq
+
+instance EventFilter RankingSubmitted where
+  eventFilter _ addr = defaultFilter # set _address (Just addr) # set _topics
+    ( Just
+        [ Just $ unsafePartial $ fromJust $ mkHexString
+            "94ed272ce919af459ea4c388df2936a844303575a8cd4fd4ee54bc5e8432625c"
+        , Nothing
+        , Nothing
+        ]
+    )
+
+instance
+  IndexedEvent Tuple0
+    ( Tuple2 (Tagged (Proxy "owner") Address)
+        (Tagged (Proxy "ranking") (Array (UIntN (D2 :& D5 :& DOne D6))))
+    )
+    RankingSubmitted where
+  isAnonymous _ = false
+
 newtype TTCResult = TTCResult { result :: Array (Array (UIntN (D2 :& D5 :& DOne D6))) }
 
 derive instance Newtype TTCResult _

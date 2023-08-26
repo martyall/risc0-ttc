@@ -22,6 +22,7 @@ import Prelude
 
 import Chanterelle.Test (assertWeb3)
 import Contracts.TTCTrading as TTC
+import Contracts.Token (ownerOf)
 import Contracts.Token as Token
 import Control.Parallel (parTraverse)
 import Data.Array (length, (!!), (..))
@@ -43,7 +44,7 @@ import Network.Ethereum.Core.HexString (unHex)
 import Network.Ethereum.Core.HexString as HexString
 import Network.Ethereum.Core.Signatures (nullAddress, unAddress)
 import Network.Ethereum.Types (Address, HexString, embed, mkAddress, mkHexString)
-import Network.Ethereum.Web3 (ChainCursor(..), DLProxy(..), EventAction(..), Provider, TransactionOptions, UIntN, Web3, _from, _gas, _to, defaultTransactionOptions, eventFilter, forkWeb3, httpProvider, uIntNFromBigNumber)
+import Network.Ethereum.Web3 (ChainCursor(..), DLProxy(..), EventAction(..), Provider, TransactionOptions, UIntN, Web3, _from, _gas, _to, defaultTransactionOptions, eventFilter, forkWeb3, forkWeb3', httpProvider, uIntNFromBigNumber)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
 import Network.Ethereum.Web3.Contract.Events (pollEvent')
 import Network.Ethereum.Web3.Solidity.Sizes (S256)
@@ -238,15 +239,30 @@ rankTokens
 rankTokens appData _users = do
   let users = homogeneous _users
   let
-    f { user, prefs } = assertWeb3 appData.provider $
+    f { user, prefs } =
       let
         txOpts = defaultTTCTxOpts appData #
           _from ?~ user
       in
-        TTC.submitPreferences txOpts { _preferenceList: prefs }
+        assertWeb3 appData.provider $ do
+          fiber <- forkWeb3' $ awaitConfirmation user
+          _ <- TTC.submitPreferences txOpts { _preferenceList: prefs }
+          liftAff $ joinFiber fiber
+
   _ <- parTraverse f users
   pure unit
---where
+  where
+  awaitConfirmation user =
+    let
+      filter = eventFilter (Proxy :: Proxy TTC.RankingSubmitted) appData.ttc
+      handler = \(TTC.RankingSubmitted { owner, ranking }) ->
+        if user == owner then do
+          liftAff $ Console.log $ "Ranking Receipt for " <> (shortAddress owner) <> ": " <> "\n"
+            <> show ranking
+          pure TerminateEvent
+        else pure ContinueEvent
+    in
+      void $ pollEvent' { f: filter } { f: handler }
 
 verifyPreferences
   :: AppData
@@ -266,7 +282,7 @@ verifyPreferences appData _users = do
           Console.log $ "Finding ranking for " <> show user
           let prefIdxs = (0 .. (length prefs - 1))
           for_ prefIdxs \prefIndex -> do
-            Console.log $ show ix <> ", " <> show prefIndex 
+            Console.log $ show ix <> ", " <> show prefIndex
             pref <- TTC.preferenceListsArray txOpts Latest (unsafeToUInt ix) (unsafeToUInt prefIndex)
             let trueVal = prefs !! prefIndex
             unless (Just pref == map Right trueVal)
@@ -349,7 +365,7 @@ displayTrades
 displayTrades _users = do
   let users = homogeneous _users
   for_ users $ \{ user, prev, trade } ->
-    Console.log $ "User " <> unHex (HexString.takeBytes 4 (unAddress user)) <> ": " <> show prev <> " ==> " <> show trade
+    Console.log $ "User " <> shortAddress user <> ": " <> show prev <> " ==> " <> show trade
 
 resetContract
   :: AppData
@@ -392,3 +408,6 @@ defaultTTCTxOpts appData =
 unsafeToUInt :: Int -> UIntN S256
 unsafeToUInt n =
   unsafePartial $ fromJust $ uIntNFromBigNumber (DLProxy :: DLProxy S256) $ embed n
+
+shortAddress :: Address -> String
+shortAddress addr = unHex $ HexString.takeBytes 4 (unAddress addr)

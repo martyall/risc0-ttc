@@ -6,8 +6,6 @@ import {IBonsaiRelay} from "bonsai/IBonsaiRelay.sol";
 import {BonsaiCallbackReceiver} from "bonsai/BonsaiCallbackReceiver.sol";
 
 contract TTCTrading is BonsaiCallbackReceiver {
-    uint8 public constant MAX_PARTICIPANTS = 6;
-
     uint64 private constant _BONSAI_CALLBACK_GAS_LIMIT = 100000000;
 
     /// @notice Image ID of the only zkVM binary to accept callbacks froma.
@@ -25,13 +23,15 @@ contract TTCTrading is BonsaiCallbackReceiver {
 
     event PhaseChanged(TradePhase newPhase);
     event TokenDetailsEmitted(uint256[] tokenIds, uint256[][] preferenceLists);
-
     event TTCResult(uint256[][] result);
+    event RankingSubmitted(address owner, uint[] ranking);
+
+    uint8 public submissionCounter = 0;
+    uint8 public maxParticipants;
 
     address[] public ownersArray;
     uint256[] public tokenIdsArray;
     uint256[][] public preferenceListsArray;
-    uint8 public submissionCounter = 0;
     mapping(uint => uint) trades;
 
     modifier inTokenSubmissionPhase() {
@@ -61,15 +61,17 @@ contract TTCTrading is BonsaiCallbackReceiver {
     constructor(
         IERC721 _token,
         IBonsaiRelay bonsaiRelay,
-        bytes32 _imageId
+        bytes32 _imageId,
+        uint8 _maxParticipants
     ) BonsaiCallbackReceiver(bonsaiRelay) {
         token = _token;
         ttcImageId = _imageId;
+        maxParticipants = _maxParticipants;
     }
 
     function submitToken(uint256 _tokenId) external inTokenSubmissionPhase {
         require(
-            submissionCounter <= MAX_PARTICIPANTS,
+            submissionCounter <= maxParticipants,
             "Submission limit reached"
         );
 
@@ -84,6 +86,7 @@ contract TTCTrading is BonsaiCallbackReceiver {
 
     function sealTokensAndStartRanking() external inTokenSubmissionPhase {
         phase = TradePhase.Ranking;
+        preferenceListsArray = new uint[][](ownersArray.length);
         emit PhaseChanged(phase);
     }
 
@@ -99,6 +102,7 @@ contract TTCTrading is BonsaiCallbackReceiver {
             }
         }
         require(found, "Token not submitted by user");
+        emit RankingSubmitted(msg.sender, _preferenceList);
     }
 
     function lockRankingAndExecuteTTC() external inRankingPhase {
@@ -168,6 +172,9 @@ contract TTCTrading is BonsaiCallbackReceiver {
                 revert("Contract is still open");
             }
         }
+        delete ownersArray;
+        delete tokenIdsArray;
+        delete preferenceListsArray;
         submissionCounter = 0;
         phase = TradePhase.TokenSubmission;
         emit PhaseChanged(TradePhase.TokenSubmission);
