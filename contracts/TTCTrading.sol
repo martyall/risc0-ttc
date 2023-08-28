@@ -21,13 +21,11 @@ contract TTCTrading is BonsaiCallbackReceiver {
         Execution,
         Distribution
     }
+
     TradePhase public phase = TradePhase.TokenSubmission;
 
     event PhaseChanged(TradePhase newPhase);
-    event TokenDetailsEmitted(
-        uint256[MAX_PARTICIPANTS] tokenIds,
-        uint256[][MAX_PARTICIPANTS] preferenceLists
-    );
+    event TokenDetailsEmitted(uint256[MAX_PARTICIPANTS] tokenIds, uint256[][MAX_PARTICIPANTS] preferenceLists);
 
     event TTCResult(uint256[][] result);
 
@@ -35,13 +33,10 @@ contract TTCTrading is BonsaiCallbackReceiver {
     uint256[MAX_PARTICIPANTS] public tokenIdsArray;
     uint256[][MAX_PARTICIPANTS] public preferenceListsArray;
     uint8 public submissionCounter = 0;
-    mapping(uint => uint) trades;
+    mapping(uint256 => uint256) trades;
 
     modifier inTokenSubmissionPhase() {
-        require(
-            phase == TradePhase.TokenSubmission,
-            "Not in token submission phase"
-        );
+        require(phase == TradePhase.TokenSubmission, "Not in token submission phase");
         _;
     }
 
@@ -61,20 +56,13 @@ contract TTCTrading is BonsaiCallbackReceiver {
     }
 
     /// @notice Initialize the contract, binding it to a specified Bonsai relay and RISC Zero guest image.
-    constructor(
-        IERC721 _token,
-        IBonsaiRelay bonsaiRelay,
-        bytes32 _imageId
-    ) BonsaiCallbackReceiver(bonsaiRelay) {
+    constructor(IERC721 _token, IBonsaiRelay bonsaiRelay, bytes32 _imageId) BonsaiCallbackReceiver(bonsaiRelay) {
         token = _token;
         ttcImageId = _imageId;
     }
 
     function submitToken(uint256 _tokenId) external inTokenSubmissionPhase {
-        require(
-            submissionCounter <= MAX_PARTICIPANTS,
-            "Submission limit reached"
-        );
+        require(submissionCounter <= MAX_PARTICIPANTS, "Submission limit reached");
 
         require(token.ownerOf(_tokenId) == msg.sender, "Not owner of token");
 
@@ -90,9 +78,7 @@ contract TTCTrading is BonsaiCallbackReceiver {
         emit PhaseChanged(phase);
     }
 
-    function submitPreferences(
-        uint256[] memory _preferenceList
-    ) external inRankingPhase {
+    function submitPreferences(uint256[] memory _preferenceList) external inRankingPhase {
         bool found = false;
         for (uint8 i = 0; i < submissionCounter; i++) {
             if (ownersArray[i] == msg.sender) {
@@ -122,14 +108,12 @@ contract TTCTrading is BonsaiCallbackReceiver {
         emit PhaseChanged(phase);
     }
 
-    function storeResult(
-        uint[][] memory result
-    ) external onlyBonsaiCallback(ttcImageId) returns (bytes memory) {
-        for (uint cycle = 0; cycle < result.length; cycle++) {
+    function storeResult(uint256[][] memory result) external onlyBonsaiCallback(ttcImageId) returns (bytes memory) {
+        for (uint256 cycle = 0; cycle < result.length; cycle++) {
             if (result[cycle].length == 1) {
                 trades[result[cycle][0]] = result[cycle][0];
             } else {
-                for (uint i = 0; i < result[cycle].length; i++) {
+                for (uint256 i = 0; i < result[cycle].length; i++) {
                     if (i < result[cycle].length - 1) {
                         trades[result[cycle][i]] = result[cycle][i + 1];
                     } else {
@@ -146,11 +130,7 @@ contract TTCTrading is BonsaiCallbackReceiver {
         bool found = false;
         for (uint8 i = 0; i < submissionCounter; i++) {
             if (ownersArray[i] == msg.sender) {
-                token.transferFrom(
-                    address(this),
-                    msg.sender,
-                    trades[tokenIdsArray[i]]
-                );
+                token.transferFrom(address(this), msg.sender, trades[tokenIdsArray[i]]);
                 delete trades[tokenIdsArray[i]];
                 delete ownersArray[i];
                 delete tokenIdsArray[i];

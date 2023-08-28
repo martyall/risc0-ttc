@@ -1,50 +1,30 @@
+use ethers_contract::EthEvent;
 use ethers_core::{
     abi::{AbiDecode, AbiEncode, RawLog},
     types::{H256, U256},
 };
-use ethers_contract::EthEvent;
+
 use crate::algorithm;
 
 pub mod contract {
 
-  use ethers_contract::{EthEvent, EthCall, EthDisplay};
-     
+    use ethers_contract::{EthCall, EthDisplay, EthEvent};
 
-  #[derive(
-      Clone,                                                                        
-      EthEvent,
-      EthDisplay,                                                               
-      Default,
-      Debug,
-      PartialEq,
-      Eq,
-      Hash
-  )]
-  #[ethevent(
-      name = "TokenDetailsEmitted",
-      abi = "TokenDetailsEmitted(uint256[6],uint256[][6])"
-  )]
-  pub struct TokenDetailsEmittedFilter {
-      pub token_ids: [::ethers_core::types::U256; 6],
-      pub preference_lists: [::std::vec::Vec<::ethers_core::types::U256>; 6],
-  }
-  
-  
-  #[derive(
-      Clone,
-      EthCall,
-      EthDisplay,
-      Default,
-      Debug,
-      PartialEq,
-      Eq,
-      Hash
-  )]
-  #[ethcall(name = "storeResult", abi = "storeResult(uint256[][])")]
-  pub struct StoreResultCall {
-      pub result: ::std::vec::Vec<::std::vec::Vec<::ethers_core::types::U256>>,
-  }
+    #[derive(Clone, EthEvent, EthDisplay, Default, Debug, PartialEq, Eq, Hash)]
+    #[ethevent(
+        name = "TokenDetailsEmitted",
+        abi = "TokenDetailsEmitted(uint256[6],uint256[][6])"
+    )]
+    pub struct TokenDetailsEmittedFilter {
+        pub token_ids: [::ethers_core::types::U256; 6],
+        pub preference_lists: [::std::vec::Vec<::ethers_core::types::U256>; 6],
+    }
 
+    #[derive(Clone, EthCall, EthDisplay, Default, Debug, PartialEq, Eq, Hash)]
+    #[ethcall(name = "storeResult", abi = "storeResult(uint256[][])")]
+    pub struct StoreResultCall {
+        pub result: ::std::vec::Vec<::std::vec::Vec<::ethers_core::types::U256>>,
+    }
 }
 
 pub fn decode_input(log_data: Vec<u8>) -> algorithm::PreferenceGraph<U256> {
@@ -80,8 +60,8 @@ pub fn encode_output(output: &algorithm::Solution<U256>) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
 
-    use hex::FromHex;
     use algorithm::Cycle;
+    use hex::FromHex;
 
     use super::*;
 

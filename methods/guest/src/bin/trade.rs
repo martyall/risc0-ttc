@@ -2,8 +2,8 @@
 
 use std::io::Read;
 
-use ttc;
 use risc0_zkvm::guest::env;
+use ttc;
 
 risc0_zkvm::guest::entry!(main);
 

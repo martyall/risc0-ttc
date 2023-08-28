@@ -1,14 +1,15 @@
-use petgraph::graph::{DiGraph, NodeIndex};
-use petgraph::visit::depth_first_search;
-use petgraph::visit::{Control, DfsEvent};
-use petgraph::Direction;
-use petgraph::Graph;
-use std::collections::HashMap;
-use std::fmt::Debug;
-use std::fmt::Display;
-use std::hash::Hash;
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Display},
+    hash::Hash,
+};
 
 use err_derive::Error;
+use petgraph::{
+    graph::{DiGraph, NodeIndex},
+    visit::{depth_first_search, Control, DfsEvent},
+    Direction, Graph,
+};
 
 #[derive(Debug, Error)]
 pub enum TTCError {
@@ -211,34 +212,32 @@ where
 #[cfg(test)]
 mod tests {
 
-  use super::*;
-  
-  #[test]
-  fn basic_test() {
-      let prefs = vec![
-          ("S1", vec!["S3", "S2", "S4", "S1"]),
-          ("S2", vec!["S3", "S5", "S6"]),
-          ("S3", vec!["S3", "S1"]),
-          ("S4", vec!["S2", "S5", "S6", "S4"]),
-          ("S5", vec!["S1", "S3", "S2"]),
-          ("S6", vec!["S2", "S4", "S5", "S6"]),
-      ];
-      let prefs = Preferences::new(prefs.into_iter().collect()).unwrap();
-  
-      let mut g = PreferenceGraph::new(prefs).unwrap();
-      let ps = g.solve_preferences().unwrap().res;
-      assert_eq!(
-        vec![
-            Cycle {
-                values: vec!["S3"]
-            },
-            Cycle {
-                values: vec!["S1", "S2", "S5"]
-            },
-            Cycle {
-                values: vec!["S4", "S6"]
-            }
-        ],
+    use super::*;
+
+    #[test]
+    fn basic_test() {
+        let prefs = vec![
+            ("S1", vec!["S3", "S2", "S4", "S1"]),
+            ("S2", vec!["S3", "S5", "S6"]),
+            ("S3", vec!["S3", "S1"]),
+            ("S4", vec!["S2", "S5", "S6", "S4"]),
+            ("S5", vec!["S1", "S3", "S2"]),
+            ("S6", vec!["S2", "S4", "S5", "S6"]),
+        ];
+        let prefs = Preferences::new(prefs.into_iter().collect()).unwrap();
+
+        let mut g = PreferenceGraph::new(prefs).unwrap();
+        let ps = g.solve_preferences().unwrap().res;
+        assert_eq!(
+            vec![
+                Cycle { values: vec!["S3"] },
+                Cycle {
+                    values: vec!["S1", "S2", "S5"]
+                },
+                Cycle {
+                    values: vec!["S4", "S6"]
+                }
+            ],
             ps
         );
     }

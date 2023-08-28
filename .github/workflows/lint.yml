@@ -44,4 +44,5 @@ jobs:
         run: cargo sort --workspace --check
 
       - name: check solidity code formatting
-        run: forge fmt --check
+        run: find contracts -name "*.sol" | xargs forge fmt --check
+

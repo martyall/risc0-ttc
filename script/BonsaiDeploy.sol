@@ -49,9 +49,7 @@ contract BonsaiDeploy is Script, BonsaiCheats {
         uint256 deployerKey = vm.envOr("DEPLOYER_PRIVATE_KEY", uint256(0));
 
         if (deployerAddr != address(0) && deployerKey != uint256(0)) {
-            revert(
-                "only one of DEPLOYER_ADDRESS or DEPLOYER_PRIVATE_KEY should be set"
-            );
+            revert("only one of DEPLOYER_ADDRESS or DEPLOYER_PRIVATE_KEY should be set");
         }
         if (deployerAddr != address(0)) {
             vm.startBroadcast(deployerAddr);
@@ -59,14 +57,10 @@ contract BonsaiDeploy is Script, BonsaiCheats {
             vm.startBroadcast(deployerKey);
         } else if (block.chainid == 31337) {
             // On an Anvil local testnet, use the first private key by default.
-            deployerKey = uint256(
-                0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-            );
+            deployerKey = uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
             vm.startBroadcast(deployerKey);
         } else {
-            revert(
-                "specify a deployer with either DEPLOYER_ADDRESS or DEPLOYER_PRIVATE_KEY"
-            );
+            revert("specify a deployer with either DEPLOYER_ADDRESS or DEPLOYER_PRIVATE_KEY");
         }
     }
 
@@ -81,22 +75,13 @@ contract BonsaiDeploy is Script, BonsaiCheats {
         } else {
             // Deploy an IRiscZeroVerifier contract instance. Relay is stateless and owner-less.
             IRiscZeroVerifier verifier;
-            address verifierAddr = vm.envOr(
-                "DEPLOY_VERFIER_ADDRESS",
-                address(0)
-            );
+            address verifierAddr = vm.envOr("DEPLOY_VERFIER_ADDRESS", address(0));
             if (verifierAddr != address(0)) {
-                console2.log(
-                    "Using IRiscZeroVerifier at ",
-                    address(verifierAddr)
-                );
+                console2.log("Using IRiscZeroVerifier at ", address(verifierAddr));
                 verifier = IRiscZeroVerifier(verifierAddr);
             } else {
                 verifier = new RiscZeroGroth16Verifier();
-                console2.log(
-                    "Deployed RiscZeroGroth16Verifier to ",
-                    address(verifier)
-                );
+                console2.log("Deployed RiscZeroGroth16Verifier to ", address(verifier));
             }
 
             bonsaiRelay = new BonsaiRelay(verifier);
@@ -148,10 +133,7 @@ contract BonsaiDeploy is Script, BonsaiCheats {
                 console2.log("No images uploaded to Bonsai");
             }
             for (uint256 i = 0; i < imageIds.length; i++) {
-                console2.log(
-                    "Uploaded guest image to Bonsai",
-                    vm.toString(imageIds[i])
-                );
+                console2.log("Uploaded guest image to Bonsai", vm.toString(imageIds[i]));
             }
         }
     }
