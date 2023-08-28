@@ -9,8 +9,8 @@ path = "src/lib.rs"
 crate-type = ["rlib"]
 
 [dependencies]
-hex = "0.4"
 err-derive = "0.3.1"
-petgraph = { version = "0.6.3", default-features = false}
-ethers-contract = {version = "2.0", default-features = false, features = ["abigen"]}
-ethers-core = {version = "2.0", default-features = false}
+ethers-contract = { version = "2.0", default-features = false, features = ["abigen"] }
+ethers-core = { version = "2.0", default-features = false }
+hex = "0.4"
+petgraph = { version = "0.6.3", default-features = false }
