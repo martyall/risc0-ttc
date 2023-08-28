@@ -15,9 +15,11 @@
 use anyhow::Context;
 use bonsai_ethereum_relay::sdk::client::{CallbackRequest, Client};
 use clap::Parser;
-use ethers::{abi::ethabi, types::Address};
-use methods::FIBONACCI_ID;
+use ethers::{types::Address, contract::EthCall};
+use methods::TRADE_ID;
+use ttc::ttc_trading::contract::StoreResultCall;
 use risc0_zkvm::sha::Digest;
+use hex::FromHex;
 
 /// Exmaple code for sending a REST API request to the Bonsai relay service to
 /// requests, execution, proving, and on-chain callback for a zkVM guest
@@ -28,8 +30,8 @@ struct Args {
     /// Adress for the BonsaiStarter application contract.
     address: Address,
 
-    /// Input N for calculating the Nth Fibonacci number.
-    number: u64,
+    // an abi encoded TokenDetailsEmittedFilter event as a hex string
+    token_details_emitted_event: String,
 
     /// Bonsai Relay API URL.
     #[arg(long, env, default_value = "http://localhost:8080")]
@@ -52,7 +54,8 @@ async fn main() -> anyhow::Result<()> {
     .context("Failed to initialize the relay client")?;
 
     // Initialize the input for the FIBONACCI guest.
-    let input = ethabi::encode(&[ethers::abi::Token::Uint(args.number.into())]);
+
+    let input = <Vec<u8>>::from_hex(args.token_details_emitted_event).unwrap();
 
     // Create a CallbackRequest for your contract
     // example: (contracts/BonsaiStarter.sol).
@@ -60,9 +63,9 @@ async fn main() -> anyhow::Result<()> {
         callback_contract: args.address,
         // you can use the command `solc --hashes contracts/BonsaiStarter.sol`
         // to get the value for your actual contract (9f2275c0: storeResult(uint256,uint256))
-        function_selector: [0x9f, 0x22, 0x75, 0xc0],
+        function_selector: <StoreResultCall as EthCall>::selector(),
         gas_limit: 3000000,
-        image_id: Digest::from(FIBONACCI_ID).into(),
+        image_id: Digest::from(TRADE_ID).into(),
         input,
     };
 
