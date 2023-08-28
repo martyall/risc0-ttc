@@ -23,6 +23,7 @@ import Prelude
 import Chanterelle.Test (assertWeb3)
 import Contracts.TTCTrading as TTC
 import Contracts.Token as Token
+import Control.Monad.Reader (ask)
 import Control.Parallel (parTraverse)
 import Data.Array (length, (!!), (..))
 import Data.Either (Either(..), either)
@@ -43,7 +44,7 @@ import Network.Ethereum.Core.HexString (unHex)
 import Network.Ethereum.Core.HexString as HexString
 import Network.Ethereum.Core.Signatures (nullAddress, unAddress)
 import Network.Ethereum.Types (Address, HexString, embed, mkAddress, mkHexString)
-import Network.Ethereum.Web3 (ChainCursor(..), DLProxy(..), EventAction(..), Provider, TransactionOptions, UIntN, Web3, _from, _gas, _to, defaultTransactionOptions, eventFilter, forkWeb3, httpProvider, uIntNFromBigNumber)
+import Network.Ethereum.Web3 (ChainCursor(..), Change(..), DLProxy(..), EventAction(..), Provider, TransactionOptions, UIntN, Web3, _from, _gas, _to, defaultTransactionOptions, eventFilter, forkWeb3, httpProvider, uIntNFromBigNumber)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
 import Network.Ethereum.Web3.Contract.Events (pollEvent')
 import Network.Ethereum.Web3.Solidity (unVector)
@@ -69,6 +70,8 @@ main = do
     verifyPreferences appData ranking
     Console.log "Verified the preferences in contract"
     closeRankings appData
+    -- NOTE: If you want to continue by using the relay manually, end
+    -- the program now and use the raw logs as input
     Console.log "Emitted Data to Relay"
     awaitTTCResult appData
     Console.log "Retrieving Tokens"
@@ -245,7 +248,6 @@ rankTokens appData _users = do
         TTC.submitPreferences txOpts { _preferenceList: prefs }
   _ <- parTraverse f users
   pure unit
---where
 
 verifyPreferences
   :: AppData
@@ -262,7 +264,6 @@ verifyPreferences appData _users = do
         eowner <- TTC.ownersArray txOpts Latest (unsafeToUInt ix)
         owner <- either (throwError <<< error <<< show) pure eowner
         when (owner == user) $ do
-          Console.log $ "Finding ranking for " <> show user
           let prefIdxs = (0 .. (length prefs - 1))
           for_ prefIdxs \prefIndex -> do
             pref <- TTC.preferenceListsArray txOpts Latest (unsafeToUInt ix) (unsafeToUInt prefIndex)
@@ -270,7 +271,11 @@ verifyPreferences appData _users = do
             unless (Just pref == map Right trueVal)
               $ throwError
               $ error
-              $ "wanted " <> show trueVal <> " but got " <> show pref
+              $ "For index " <> show ix <> ", " <> show prefIndex
+                <> "wanted "
+                <> show trueVal
+                <> " but got "
+                <> show pref
   traverse_ f users
 
 closeRankings
@@ -293,6 +298,8 @@ closeRankings appData = do
   awaitTokenDetailsEmitted =
     let
       tdeMonitor = \(TTC.TokenDetailsEmitted { tokenIds, preferenceLists }) -> do
+        Change c <- ask
+        Console.log $ "TokenDetailsEmittedEvent: " <> unHex c.data
         Console.log $
           "Corresponds to preference matrix: \n" <>
             formatMatrix { header: unVector tokenIds, matrix: unVector preferenceLists }

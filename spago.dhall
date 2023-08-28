@@ -25,6 +25,7 @@ You can edit this file as you like.
   , "random"
   , "strings"
   , "tagged"
+  , "transformers"
   , "unfoldable"
   , "web3"
   ]
