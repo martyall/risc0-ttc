@@ -41,8 +41,8 @@ contract Deploy is Script, BonsaiCheats, BonsaiDeploy {
 
         Token token = new Token();
         TTCTrading ttc = new TTCTrading(token, bonsaiRelay, imageId);
-        console2.logAddress(address(token));
-        console2.logAddress(address(ttc));
+        console2.log("Token Address ", vm.toString(address(token)));
+        console2.log("TTC Address", vm.toString(address(ttc)));
 
         vm.stopBroadcast();
     }

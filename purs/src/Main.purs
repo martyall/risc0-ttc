@@ -23,13 +23,17 @@ import Prelude
 import Chanterelle.Test (assertWeb3)
 import Contracts.TTCTrading as TTC
 import Contracts.Token as Token
+import Control.Monad.Reader (ask)
 import Control.Parallel (parTraverse)
+import Cycle (applyCycle, applyCycles, mkCycle)
 import Data.Array (length, (!!), (..))
 import Data.Either (Either(..), either)
 import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
 import Data.Lens ((?~))
 import Data.Maybe (Maybe(..), fromJust)
-import Data.Traversable (for, for_, sequence, traverse_)
+import Data.Monoid.Conj (Conj(..))
+import Data.Newtype (un)
+import Data.Traversable (fold, for, for_, sequence, traverse, traverse_)
 import Effect (Effect)
 import Effect.Aff (Aff, error, joinFiber, runAff_, throwError)
 import Effect.Aff.AVar as AVar
@@ -37,13 +41,14 @@ import Effect.Aff.Class (liftAff)
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Console
 import Effect.Console (log)
+import Effect.Exception (throw)
 import Effect.Random (randomInt)
 import Matrix (formatMatrix)
 import Network.Ethereum.Core.HexString (unHex)
 import Network.Ethereum.Core.HexString as HexString
 import Network.Ethereum.Core.Signatures (nullAddress, unAddress)
 import Network.Ethereum.Types (Address, HexString, embed, mkAddress, mkHexString)
-import Network.Ethereum.Web3 (ChainCursor(..), DLProxy(..), EventAction(..), Provider, TransactionOptions, UIntN, Web3, _from, _gas, _to, defaultTransactionOptions, eventFilter, forkWeb3, httpProvider, uIntNFromBigNumber)
+import Network.Ethereum.Web3 (ChainCursor(..), Change(..), DLProxy(..), EventAction(..), Provider, TransactionOptions, UIntN, Web3, _from, _gas, _to, defaultTransactionOptions, eventFilter, forkWeb3, httpProvider, uIntNFromBigNumber)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
 import Network.Ethereum.Web3.Contract.Events (pollEvent')
 import Network.Ethereum.Web3.Solidity (unVector)
@@ -69,12 +74,15 @@ main = do
     verifyPreferences appData ranking
     Console.log "Verified the preferences in contract"
     closeRankings appData
+    -- NOTE: If you want to continue by using the relay manually, end
+    -- the program now and use the raw logs as input
     Console.log "Emitted Data to Relay"
     awaitTTCResult appData
     Console.log "Retrieving Tokens"
     trades <- retrieveTokens appData t
     Console.log "Trades:\n"
     displayTrades trades
+    verifyOutcomes trades
     Console.log "Resetting contract"
     resetContract appData
     Console.log "Done"
@@ -245,7 +253,6 @@ rankTokens appData _users = do
         TTC.submitPreferences txOpts { _preferenceList: prefs }
   _ <- parTraverse f users
   pure unit
---where
 
 verifyPreferences
   :: AppData
@@ -262,7 +269,6 @@ verifyPreferences appData _users = do
         eowner <- TTC.ownersArray txOpts Latest (unsafeToUInt ix)
         owner <- either (throwError <<< error <<< show) pure eowner
         when (owner == user) $ do
-          Console.log $ "Finding ranking for " <> show user
           let prefIdxs = (0 .. (length prefs - 1))
           for_ prefIdxs \prefIndex -> do
             pref <- TTC.preferenceListsArray txOpts Latest (unsafeToUInt ix) (unsafeToUInt prefIndex)
@@ -270,7 +276,11 @@ verifyPreferences appData _users = do
             unless (Just pref == map Right trueVal)
               $ throwError
               $ error
-              $ "wanted " <> show trueVal <> " but got " <> show pref
+              $ "For index " <> show ix <> ", " <> show prefIndex
+                <> "wanted "
+                <> show trueVal
+                <> " but got "
+                <> show pref
   traverse_ f users
 
 closeRankings
@@ -293,6 +303,8 @@ closeRankings appData = do
   awaitTokenDetailsEmitted =
     let
       tdeMonitor = \(TTC.TokenDetailsEmitted { tokenIds, preferenceLists }) -> do
+        Change c <- ask
+        Console.log $ "TokenDetailsEmittedEvent: " <> unHex c.data
         Console.log $
           "Corresponds to preference matrix: \n" <>
             formatMatrix { header: unVector tokenIds, matrix: unVector preferenceLists }
@@ -317,14 +329,14 @@ retrieveTokens
   :: forall r
    . AppData
   -> Users { user :: Address, tokenId :: TokenId | r }
-  -> Aff (Users { user :: Address, prev :: TokenId, trade :: TokenId })
+  -> Aff (Users { user :: Address, tokenId :: TokenId, trade :: TokenId })
 retrieveTokens appData _users = do
   let users = homogeneous _users
   transferFibers <-
     let
       f { user, tokenId } = forkWeb3 appData.provider $ do
         trade <- awaitTransfer appData { from: appData.ttc, to: user }
-        pure { user, prev: tokenId, trade }
+        pure { user, tokenId, trade }
     in
       parTraverse f users
   _ <- assertWeb3 appData.provider $
@@ -341,13 +353,37 @@ retrieveTokens appData _users = do
     Left err -> throwError $ error $ "Failed to find token all token transfers: " <> show err
     Right a -> pure $ fromHomogeneous a
 
+verifyOutcomes
+  :: forall r
+   . Users { user :: Address, tokenId :: TokenId, trade :: TokenId | r }
+  -> Aff Unit
+verifyOutcomes users = do
+  let us = homogeneous users
+  for_ us $ \{ user, tokenId, trade } -> do
+    let expectedTrade = applyCycles expected tokenId
+    when (expectedTrade /= Just trade)
+      $ liftEffect
+      $ throw
+      $ "Unexpected trade for user " <> unHex (HexString.takeBytes 4 (unAddress user)) <> ":\n"
+        <> "expected "
+        <> show expectedTrade
+        <> " but got "
+        <> show trade
+  Console.log "Verified outcomes"
+  where
+  expected = unsafePartial $ fromJust $ traverse mkCycle
+    [ [ users.user0.tokenId, users.user1.tokenId, users.user4.tokenId ]
+    , [ users.user2.tokenId ]
+    , [ users.user3.tokenId, users.user5.tokenId ]
+    ]
+
 displayTrades
-  :: Users { user :: Address, prev :: TokenId, trade :: TokenId }
+  :: Users { user :: Address, tokenId :: TokenId, trade :: TokenId }
   -> Aff Unit
 displayTrades _users = do
   let users = homogeneous _users
-  for_ users $ \{ user, prev, trade } ->
-    Console.log $ "User " <> unHex (HexString.takeBytes 4 (unAddress user)) <> ": " <> show prev <> " ==> " <> show trade
+  for_ users $ \{ user, tokenId, trade } ->
+    Console.log $ "User " <> unHex (HexString.takeBytes 4 (unAddress user)) <> ": " <> show tokenId <> " ==> " <> show trade
 
 resetContract
   :: AppData
