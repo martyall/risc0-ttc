@@ -15,11 +15,11 @@
 use anyhow::Context;
 use bonsai_ethereum_relay::sdk::client::{CallbackRequest, Client};
 use clap::Parser;
-use ethers::{types::Address, contract::EthCall};
-use methods::TRADE_ID;
-use ttc::ttc_trading::contract::StoreResultCall;
-use risc0_zkvm::sha::Digest;
+use ethers::{contract::EthCall, types::Address};
 use hex::FromHex;
+use methods::TRADE_ID;
+use risc0_zkvm::sha::Digest;
+use ttc::ttc_trading::contract::StoreResultCall;
 
 /// Exmaple code for sending a REST API request to the Bonsai relay service to
 /// requests, execution, proving, and on-chain callback for a zkVM guest
