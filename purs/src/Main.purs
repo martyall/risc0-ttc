@@ -25,22 +25,19 @@ import Contracts.TTCTrading as TTC
 import Contracts.Token as Token
 import Control.Monad.Reader (ask)
 import Control.Parallel (parTraverse)
-import Cycle (applyCycle, applyCycles, mkCycle)
+import Cycle (applyCycles, mkCycle)
 import Data.Array (length, (!!), (..))
 import Data.Either (Either(..), either)
 import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
 import Data.Lens ((?~))
 import Data.Maybe (Maybe(..), fromJust)
-import Data.Monoid.Conj (Conj(..))
-import Data.Newtype (un)
-import Data.Traversable (fold, for, for_, sequence, traverse, traverse_)
+import Data.Traversable (for, for_, sequence, traverse, traverse_)
 import Effect (Effect)
-import Effect.Aff (Aff, error, joinFiber, runAff_, throwError)
+import Effect.Aff (Aff, error, joinFiber, launchAff_, throwError)
 import Effect.Aff.AVar as AVar
 import Effect.Aff.Class (liftAff)
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Console
-import Effect.Console (log)
 import Effect.Exception (throw)
 import Effect.Random (randomInt)
 import Matrix (formatMatrix)
@@ -59,33 +56,31 @@ import Partial.Unsafe (unsafePartial)
 import Type.Proxy (Proxy(..))
 
 main :: Effect Unit
-main = do
-  runAff_ (liftEffect <<< log <<< show) $ do
-    appData <- mkAppData
-    t <- buyTokens appData
-    transferTokensToTTC appData t
-    Console.log "Transfered tokens to TTC"
-    _ <- closeSubmissions appData
-    Console.log "Sealed the submissions"
-    let ranking = ranks t
-    Console.log $ show ranking
-    rankTokens appData ranking
-    Console.log "Ranked the tokens"
-    verifyPreferences appData ranking
-    Console.log "Verified the preferences in contract"
-    closeRankings appData
-    -- NOTE: If you want to continue by using the relay manually, end
-    -- the program now and use the raw logs as input
-    Console.log "Emitted Data to Relay"
-    awaitTTCResult appData
-    Console.log "Retrieving Tokens"
-    trades <- retrieveTokens appData t
-    Console.log "Trades:\n"
-    displayTrades trades
-    verifyOutcomes trades
-    Console.log "Resetting contract"
-    resetContract appData
-    Console.log "Done"
+main = launchAff_ do
+  appData <- mkAppData
+  t <- buyTokens appData
+  transferTokensToTTC appData t
+  Console.info "Transfered tokens to TTC"
+  _ <- closeSubmissions appData
+  Console.info "Sealed the submissions"
+  let ranking = ranks t
+  displayRankings ranking
+  rankTokens appData ranking
+  Console.info "Ranked the tokens"
+  verifyPreferences appData ranking
+  Console.info "Verified the preferences in contract"
+  closeRankings appData
+  -- NOTE: If you want to continue by using the relay manually, end
+  -- the program now and use the raw logs as input
+  Console.info "Emitted Data to Relay"
+  awaitTTCResult appData
+  Console.info "Retrieving Tokens"
+  trades <- retrieveTokens appData t
+  displayTrades trades
+  verifyOutcomes trades
+  Console.info "Resetting contract"
+  resetContract appData
+  Console.info "Done"
 
 type Users a =
   { user0 :: a
@@ -159,7 +154,7 @@ buyTokens
 buyTokens appData = do
   let users = homogeneous appData.users
   tokenIds <- for users $ \user -> do
-    tokenId <- unsafeToUInt <$> liftEffect (randomInt 1 1000000)
+    tokenId <- unsafeToUInt <$> liftEffect (randomInt 1 10000)
     pure { user, tokenId }
   mintFibers <-
     let
@@ -237,6 +232,14 @@ ranks users =
     , user5: { user: user5, tokenId: token5, prefs: [ token1, token3, token4, token5 ] }
     }
 
+displayRankings
+  :: Users { user :: Address, tokenId :: TokenId, prefs :: Array TokenId }
+  -> Aff Unit
+displayRankings _users = do
+  let users = homogeneous _users
+  for_ users $ \{ user, tokenId, prefs } ->
+    Console.info $ "User " <> formatAddress user <> ": " <> show tokenId <> " ==> " <> show prefs
+
 rankTokens
   :: forall r
    . AppData
@@ -304,8 +307,8 @@ closeRankings appData = do
     let
       tdeMonitor = \(TTC.TokenDetailsEmitted { tokenIds, preferenceLists }) -> do
         Change c <- ask
-        Console.log $ "TokenDetailsEmittedEvent: " <> unHex c.data
-        Console.log $
+        Console.log $ "TokenDetailsEmittedEvent: \n" <> unHex c.data
+        Console.info $
           "Corresponds to preference matrix: \n" <>
             formatMatrix { header: unVector tokenIds, matrix: unVector preferenceLists }
         pure TerminateEvent
@@ -318,8 +321,8 @@ awaitTTCResult
   -> Aff Unit
 awaitTTCResult appData =
   let
-    monitor = \e@(TTC.TTCResult {}) -> do
-      Console.log $ show e
+    monitor = \(TTC.TTCResult { result }) -> do
+      Console.info $ "Found trading cycles: " <> show result
       pure TerminateEvent
     filter = eventFilter (Proxy :: Proxy TTC.TTCResult) appData.ttc
   in
@@ -364,7 +367,7 @@ verifyOutcomes users = do
     when (expectedTrade /= Just trade)
       $ liftEffect
       $ throw
-      $ "Unexpected trade for user " <> unHex (HexString.takeBytes 4 (unAddress user)) <> ":\n"
+      $ "Unexpected trade for user " <> formatAddress user <> ":\n"
         <> "expected "
         <> show expectedTrade
         <> " but got "
@@ -383,7 +386,7 @@ displayTrades
 displayTrades _users = do
   let users = homogeneous _users
   for_ users $ \{ user, tokenId, trade } ->
-    Console.log $ "User " <> unHex (HexString.takeBytes 4 (unAddress user)) <> ": " <> show tokenId <> " ==> " <> show trade
+    Console.log $ "User " <> formatAddress user <> ": " <> show tokenId <> " ==> " <> show trade
 
 resetContract
   :: AppData
@@ -405,7 +408,7 @@ resetContract appData = do
   awaitPhaseChange =
     let
       monitor = \(TTC.PhaseChanged { newPhase }) -> do
-        Console.log $ "Phase changed to " <> show newPhase <> " (Reset)"
+        Console.log $ "Phase changed to " <> show newPhase <> " (0 == Submit Phase)"
         pure TerminateEvent
       filter = eventFilter (Proxy :: Proxy TTC.PhaseChanged) appData.ttc
     in
@@ -426,3 +429,6 @@ defaultTTCTxOpts appData =
 unsafeToUInt :: Int -> UIntN S256
 unsafeToUInt n =
   unsafePartial $ fromJust $ uIntNFromBigNumber (DLProxy :: DLProxy S256) $ embed n
+
+formatAddress :: Address -> String
+formatAddress a = unHex (HexString.takeBytes 4 (unAddress a))
