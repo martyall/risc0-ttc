@@ -1,6 +1,18 @@
 # Summary
 
-This repo contains a smart contract + risc0 coprocessor implementation of the [Top Trading Cycle](https://en.wikipedia.org/wiki/Top_trading_cycle) (TTC) algorithm applied to the setting of NFTs. Roughly speaking, there is a solidity smart contract `TTCTrading` that facilitates direct trades of NFTs between users according to the users' ranked preferences. The algorithm that decides the trades is the TTC algorithm, and is known to be optimal in several  game-theoretic senses. Because the TTC algorithm is sufficiently complex and would lead to prohibitively expensive trades if implemented in on-chain bytecode, we offload it to the risc0 coprocessor. Finally, we simulate the lifecycle of the application using a script and show that in this example we get the correct results.
+This repo contains a smart contract + risc0 coprocessor implementation of the [Top Trading Cycle](https://en.wikipedia.org/wiki/Top_trading_cycle) (TTC) algorithm applied to the setting of NFTs. Roughly speaking, there is a solidity smart contract `TTCTrading` that facilitates direct trades of NFTs between users according to the users' ranked preferences. The algorithm that decides the trades is the TTC algorithm, and is known to be optimal in several game-theoretic senses:
+
+1. It is a _truthful mechanism_: Given no information about what the others do, you fare best or at least not worse by "being truthful".
+
+2. It is _Pareto efficient (optimal)_: No action or allocation is available that makes one individual better off without making another worse off. 
+
+3. It is _core stable_:  For every coalition of players, the resources allocated to the members of that coalition are at least as good as what they could achieve by breaking away and forming their own coalition. Moreover, with strict preferences, there unique core-stable allocation and this allocations is the result of the algorithm.
+
+4. It satisfies _individual rationality_: Each player should receive a payoff that is at least as high as the payoff they would receive by not participating in the game at all.
+
+Moreover, in the strict preferences domain **TTC is the unique algorithm satisfying these properties**.
+
+Because the TTC algorithm is sufficiently complex and would lead to prohibitively expensive trades if implemented in on-chain bytecode, we offload it to the risc0 coprocessor. Finally, we simulate the lifecycle of the application using a script and show that in this example we get the correct results.
 
 
 ## Why?
@@ -125,3 +137,8 @@ User 90f79bf6: 873652 ==> 305078
 User 15d34aaf: 124632 ==> 725886
 User 9965507d: 305078 ==> 873652
 ```
+## Improvements
+For the sake of simplicity, the contract assumes a fixed size user pool and the contract can only progress when all users have participated in a given phase. It would be better to relax this assumption, to allow an open user pool, and to be able to run the TTC algorithm and reallocate tokens at any time. However, certain limitations in solidity make it so you would need to do this very carefully if you were going to naively use the events and functions that I defined. The event logging and function to reallocate would increase in cost proportionally with the size of the trade pool.
+
+This implementation makes no use of the ZK aspects of the risc0 machinery, only requiring a STARK-like proof of the result. In fact the game theoretic properties of the algorithm indicate that even if you wanted to use a commit-reveal style "private ranking", nothing would really be gained.
+
