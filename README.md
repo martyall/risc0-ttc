@@ -1,282 +1,144 @@
-# Bonsai Foundry Template
+# Summary
 
-Starter template for writing an application using [Bonsai].
+This repo contains a smart contract + risc0 coprocessor implementation of the [Top Trading Cycle](https://en.wikipedia.org/wiki/Top_trading_cycle) (TTC) algorithm applied to the setting of NFTs. Roughly speaking, there is a solidity smart contract `TTCTrading` that facilitates direct trades of NFTs between users according to the users' ranked preferences. The algorithm that decides the trades is the TTC algorithm, and is known to be optimal in several game-theoretic senses:
 
-This repository implements an application on Ethereum utilizing Bonsai as a coprocessor to the smart contract application.
-It provides a starting point for building powerful new applications on Ethereum that offload computationally intensive, or difficult to implement, tasks to be proven by the [RISC Zero] [zkVM], with verifiable results sent to your Ethereum contract.
+1. It is a _truthful mechanism_: Given no information about what the others do, you fare best or at least not worse by "being truthful".
 
-*For a 60 second overview of how this template and off-chain computation with Bonsai work, [check out the video here](https://www.youtube.com/watch?v=WDS8X8H9mIk).*
+2. It is _Pareto efficient (optimal)_: No action or allocation is available that makes one individual better off without making another worse off. 
 
-## Quick Start
-First, [install Rust] and [Foundry], and then restart your terminal. Next, you will need to install the `cargo risczero tool`:
+3. It is _core stable_:  For every coalition of players, the resources allocated to the members of that coalition are at least as good as what they could achieve by breaking away and forming their own coalition. Moreover, with strict preferences, there unique core-stable allocation and this allocations is the result of the algorithm.
 
-```bash
-cargo install cargo-risczero
-```
+4. It satisfies _individual rationality_: Each player should receive a payoff that is at least as high as the payoff they would receive by not participating in the game at all.
 
-For the above commands to build successfully you will need to have installed the required dependencies. On a Ubuntu system you can install them with:
+Moreover, in the strict preferences domain **TTC is the unique algorithm satisfying these properties**.
 
-```bash
-sudo apt install curl build-essential libssl-dev pkgconf
-```
+Because the TTC algorithm is sufficiently complex and would lead to prohibitively expensive trades if implemented in on-chain bytecode, we offload it to the risc0 coprocessor. Finally, we simulate the lifecycle of the application using a script and show that in this example we get the correct results.
 
-Next we'll need to install the `risc0` toolchain with:
 
-```bash
-cargo risczero install
-```
+## Why?
 
-Now, you can initialize a new Bonsai project at a location of your choosing: 
+The reason I thought this would be a good project is because it is of medium complexity, not already implemented (afaik), and I believe it is generally useful. The current methods for trading
+NFTs most often involve liquidating one in some sort of auction contract and attempting to purchase another with the royalties. In some cases a direct
+transfer would not only be cheaper for everyone involved in terms of transaction costs and time, but it also might better fit the domain of the NFTs. The problem
+is that direct transfer is inefficient and requires a very particular configuration of the market. TTC creates a more fluid marketplace to facilitate more trades in an optimal manner. It is complicated enough to implement that coding it in solidity would be a terrible idea -- not only would it surely be riddled with
+bugs, but the high costs of running it on chain would make the whole contract moot. Offloading it to a risc0 coprocessor makes way more sense, it solves the cost problem and allows you to take advantage of the battle tested rust libraries to implement the algorithm.
 
-```bash
-forge init -t risc0/bonsai-foundry-template ./my-project
-```
-Congratulations! You've just built your first Bonsai project.
-Your new project consists of:
-- a [`zkVM program`] (written in Rust), which specifies a computation that will be proven
-- a [`contract`] (written in Solidity), which requests a proof and receives the response
+## Components
 
-[install Rust]: https://doc.rust-lang.org/cargo/getting-started/installation.html
-[Foundry]: https://getfoundry.sh/
-[`zkVM program`]: https://github.com/risc0/bonsai-foundry-template/tree/main/methods/guest/src/bin
-[`contract`]: https://github.com/risc0/bonsai-foundry-template/tree/main/contracts
+### Smart Contracts
 
-### Test Your Project
-- Use `cargo build` to test compilation of your zkVM program.
-- Use `cargo test` to run the tests in your zkVM program. 
-- Use `forge test` to test your Solidity contracts and their interaction with your zkVM program.
+There are two smart contracts in the `contracts` directory:
+1. `Token.sol`: This is a simple wrapper around the standard ERC721 Token implementation found in the open-zeppelin library
+2. `TTCTrading.sol`: This is the core contract that facilitates the trades between users.
 
-### Deploy your project on a local network
+The `TTCTrading` contract has a relatively simple implementation, it is only meant to demonstrate the application without accounting for _any_ security issues.
+The contract acts as an escrow, where a certain number of users can deposit their NFTs, submit their ranked preferences of the available tokens, and collect
+tokens designated to them after the TTC algorithm runs. The contract has 4 phases:
 
-You can deploy your contracts and run an end-to-end test or demo as follows:
+1. `TokenSubmission`: This is the period where users are depositing their tokens and the market is still open.
+2. `Ranking`: After a certain number of users have entered the market, the user pool is closed. During this phase, each user submits a (strict) ranking of their
+preferences for the available tokens. NOTE: they don't have to rank all the tokens, ranking a strict subset of them is equivalent to saying "if I can't have any of these, I would prefer the token that I already own". 
+3. `Execution`: During this phase the ranking is closed and the necessary data about the users and their rankings are sent to the relay contract. They ultimately are submitted as input to the guest code, where the result is computed along with a proof of its correctness.
+4. `Distribution`: When they relay posts the results in the form of a callback, the trade assignments are recorded in the contract and the phase changes to `Distribution`. During this phase, users can request their new tokens from the contract.
 
-1. Start a local testnet with `anvil` by running:
+### TTC Guest Code
 
-    ```bash
-    anvil
-    ```
+There is a rust crate `ttc` at the root level of the repository. It consists of two modules:
+1. `algorithm`: This is where the core algorithm is implemented, making heavy use of the [petgraph](https://github.com/petgraph/petgraph) graph theory library.
+2. `ttc_trading`: This contains utility functions to parse the input data coming from the ethereum smart contract, as well as encode the algorithm's output
+for use by the relay's callback transaction.
 
-    Once anvil is started, keep it running in the terminal, and switch to a new terminal.
+### Simulation Script
 
-2. Deploy an `IBonsaiRelay` contract by running:
+There is a `purs` directory where you can find a `Main.purs` file. This is a script (written in PureScript) which tests the application life cycle for a given example. This script uses the [purescript-web3](https://github.com/f-o-a-m/purescript-web3) library, as well as [chanterelle](https://github.com/f-o-a-m/chanterelle) to generate the FFI bindings to the contracts. The reason is that I am the primary author of both of these libraries, so I am particularly effective in using them.
 
-    ```bash
-    RISC0_DEV_MODE=true forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast
-    ```
 
-3. Check the logs for the address of the deployed `BonsaiTestRelay` contract and your application contract.
-   Save them to a couple of environment variables to reference later.
+## Steps to run
 
-    ```bash
-    export BONSAI_RELAY_ADDRESS="#copy relay address from the deploy logs#"
-    export APP_ADDRESS="#copy app address from the deploy logs#"
-    ```
-
-4. Start the Bonsai Ethereum Relay by running:
-
-    ```bash
-    RISC0_DEV_MODE=true cargo run --bin bonsai-ethereum-relay-cli -- run --relay-address "$BONSAI_RELAY_ADDRESS"
-    ```
-
-    The relay will keep monitoring the chain for callback requests, generated when your contract calls `bonsaiRelay.requestCallback(...)`, and relay their result back to your contract after computing them.
-    Keep the relay running and switch to a new terminal.
-
-    Setting `RISC0_DEV_MODE=true` deploys the `BonsaiTestRelay`, for use in local development and testing, instead of the fully verifying `BonsaiRelay` contract.
-    See the section below on using the fully-verifying relay for more information on this setting and testnet deployment.
-
-**Interact with your deployment:**
-
-You now have a locally running testnet and relay deployment that you can interact with using `cast`, a wallet, or any application you write.
-
-1. Send a transaction to the starter contract:
-
-    ```bash
-    cast send --private-key 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d --gas-limit 100000 "$APP_ADDRESS" 'calculateFibonacci(uint256)' 5
-    ```
-
-2. Check the relayed result:
-
-    ```bash
-    cast call "$APP_ADDRESS" 'fibonacci(uint256)' 5
-    ```
-
-**Deploy a new version of your application:**
-
-When you want to deploy a new version of the application contract, run the following command with the relay contract address noted earlier.
-Set `DEPLOY_UPLOAD_IMAGES=true` if you modified your guest and need to upload a new version to Bonsai.
+Before you can do anything you need to build the project, meaning cloning all the submodules and then running
 
 ```bash
-RISC0_DEV_MODE=true DEPLOY_RELAY_ADDRESS="$APP_ADDRESS" DEPLOY_UPLOAD_IMAGES=true forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast
+> git clone --recurse-submodules <repo-URL>
+> cd risc0-ttc
+> cargo build
+> npm i
+> npm run chanterelle-build
+> npm run build
 ```
 
-This will deploy only your application address and upload any updated images.
-The existing relay contract and, by setting `DEPLOY_RELAY_ADDRESS`, the running relay will continue to be used.
+NOTE: This assumes you installed certian risc0 packages via `cargo install` and some `foundry` tools as is described in the README.
 
-**Use the fully verifying relay:**
+Start the blockchain with anvil
 
-In each of the commands above, the environment variable `RISC0_DEV_MODE=true` is added.
-With this environment variable set, the `BonsaiTestRelay` contract is used, which does not check callbacks for authentication.
-This provides fast development, allowing you to iterate on your application.
+```bash 
+> anvil
+```
 
-When it's time to deploy you application to a live chain, such as the Sepolia testnet, you should remove this environment or set `RISC0_DEV_MODE=false`.
-When unset, or set to `false`, the fully-verifying `BonsaiRelay` contract will be used and all callbacks will require a [Groth16 SNARK proof] for authentication.
-This is what provides the security guarantees of Bonsai, that only legitimate outputs from your guest program can be sent to your application contract.
-
-Producing SNARK receipts that are verifiable on-chain requires the Bonsai proving service.
-See the [Configuring Bonsai](#Configuring Bonsai) section below for more information about using the Bonsai proving service.
-
-You can also deploy on a testnet by following the instructions described in [Deploy your project on a testnet](#deploy-your-project-on-a-testnet).
-If you want to know more about the relay, you can follow this [link](https://github.com/risc0/risc0/tree/main/bonsai/ethereum-relay).
-
-### Off-chain Callback Request
-
-The Relay exposes an HTTP REST API interface that can be used to directly send *off-chain* callback requests to it, as an alternative to the on-chain requests.
-It also provides an SDK in Rust that can be used to interact with it. You can check out this [example](relay/examples/callback_request.rs.rs).
-
-Assuming that Anvil and the Relay are running and both an `IBonsaiRelay` and the `BonsaiStarter` app contract are deployed (first 4 steps of the previous section), you can send a callback request directly to the Relay by running:
+Run the deploy script for the smart contracts:
 
 ```bash
-cargo run --example callback_request "$APP_ADDRESS" 10
+> RISC0_DEV_MODE=true forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast
 ```
 
-This example's arguments are the `BonsaiStarter` contract address and the number, N, to compute the Nth Fibonacci number.
-You may need to change these values accordingly.
+You should see some output indicating the contract address, something lke 
 
-Just as with on-chain callback requests, you can check the relayed result
+```
+== Logs ==
+  Deployed BonsaiTestRelay to  0x5FbDB2315678afecb367f032d93F642f64180aa3
+  Image ID for TRADE is  0x6f204468e12dd3d51f4a04cc5954246a585888a68fdd660bc67ecf385990ecc7
+  0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+  0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+
+```
+
+The first address is the `Token` contract, the second is the `TTCTrading` contract. You can start the relay service up with
 
 ```bash
-cast call "$APP_ADDRESS" 'fibonacci(uint256)' 10
+export BONSAI_RELAY_ADDRESS=0x5FbDB2315678afecb367f032d93F642f64180aa3; \                
+  export APP_ADDRESS=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0; \
+  RISC0_DEV_MODE=true cargo run --bin bonsai-ethereum-relay-cli -- run --relay-address "$BONSAI_RELAY_ADDRESS"
 ```
 
-The Relay source code with its SDK can be found in the [risc0/risc0] github repo.
-
-### Configuring Bonsai
-
-***Note:*** *The Bonsai proving service is still in early Alpha. To request an API key [complete the form here](https://bonsai.xyz/apply).*
-
-With the Bonsai proving service, you can produce a [Groth16 SNARK proof] that is verifiable on-chain.
-You can get started by setting the following environment variables with your API key and associated URL.
+Now you can run the script: 
 
 ```bash
-export BONSAI_API_KEY="YOUR_API_KEY" # see form linked above
-export BONSAI_API_URL="BONSAI_URL" # provided with your api key
+TTC_ADDRESS=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0 \
+  TOKEN_ADDRESS=0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 \
+  npx spago run
 ```
 
-Now if you run `forge test` with `RISC0_DEV_MODE=false`, the test will run as before, but will additionally use the fully verifying `BonsaiRelay` contract instead of `BonsaiTestRelay` and will request a SNARK receipt from Bonsai.
+You should see a bunch of logs printed to the console, including a matrix representing the ranked choices as well as a mapping indicating the final trades, 
+e.g. something like
 
-```bash
-RISC0_DEV_MODE=false forge test
 ```
+Corresponds to preference matrix: 
+873652| 998605| 725886| 447867| 305078| 124632
+**********************************************
+447867| 998605| 998605| 998605| 447867| 725886
+----------------------------------------------
+124632| 725886| 447867| 124632| 873652| 998605
+----------------------------------------------
+305078|      X| 873652| 305078| 124632| 447867
+----------------------------------------------
+873652|      X| 725886|      X| 305078|      X
+----------------------------------------------
+     X|      X|      X|      X|      X|      X
+----------------------------------------------
+     X|      X|      X|      X|      X|      X
 
-### Deploy your project on a testnet
+...
 
-You can deploy your contracts on a testnet such as `Sepolia` and run an end-to-end test or demo as follows:
+Trades:
 
-1. Get access to Bonsai and an Ethereum node running on a given testnet, e.g., Sepolia (in this example, we will be using [alchemy](https://www.alchemy.com/) as our Ethereum node provider) and export the following environment variables:
-
-    ```bash
-    export BONSAI_API_KEY="YOUR_API_KEY" # see form linked in the previous section
-    export BONSAI_API_URL="BONSAI_URL" # provided with your api key
-    export ALCHEMY_API_KEY="YOUR_ALCHEMY_API_KEY" # the API_KEY provided with an alchemy account
-    export DEPLOYER_PRIVATE_KEY="YOUR_WALLET_PRIVATE_KEY" # the private key of your Ethereum testnet wallet e.g., Sepolia
-    ```
-
-2.  Deploy an `IBonsaiRelay` contract by running:
-
-    ```bash
-    RISC0_DEV_MODE=false forge script script/Deploy.s.sol --rpc-url https://eth-sepolia.g.alchemy.com/v2/$ALCHEMY_API_KEY --broadcast
-    ```
-
-3. Check the logs for the address of the deployed `BonsaiRelay` contract and your application contract.
-   Save them to a couple of environment variables to reference later.
-
-    ```bash
-    export BONSAI_RELAY_ADDRESS="#copy relay address from the deploy logs#"
-    export APP_ADDRESS="#copy app address from the deploy logs#"
-    ```
-
-4. Start the Bonsai Ethereum Relay by running:
-
-    ```bash
-    RISC0_DEV_MODE=false cargo run --bin bonsai-ethereum-relay-cli -- run --relay-address "$BONSAI_RELAY_ADDRESS" --eth-node wss://eth-sepolia.g.alchemy.com/v2/$ALCHEMY_API_KEY --eth-chain-id 11155111 --private-key "$DEPLOYER_PRIVATE_KEY"
-    ```
-
-    The relay will keep monitoring the chain for callback requests, generated when your contract calls `bonsaiRelay.requestCallback(...)`, and relay their result back to your contract after computing them.
-    Keep the relay running and switch to a new terminal.
-
-**Interact with your deployment:**
-
-You now have a deployment on a testnet that you can interact with using `cast`, a wallet, or any application you write.
-
-1. Send a transaction to the starter contract:
-
-    ```bash
-    cast send --rpc-url https://eth-sepolia.g.alchemy.com/v2/$ALCHEMY_API_KEY --private-key "$DEPLOYER_PRIVATE_KEY" --gas-limit 100000 "$APP_ADDRESS" 'calculateFibonacci(uint256)' 5
-    ```
-
-2. Check the relayed result:
-
-    ```bash
-    cast call --rpc-url https://eth-sepolia.g.alchemy.com/v2/$ALCHEMY_API_KEY "$APP_ADDRESS" 'fibonacci(uint256)' 5
-    ```
-
-
-## Project Structure
-
-Below are the primary files in the project directory
-
-```text
-.
-├── Cargo.toml                      // Definitions for cargo and rust
-├── foundry.toml                    // Definitions for foundry
-├── contracts                       // Your Ethereum contracts live here
-│   ├── BonsaiStarter.sol           // Starter template for basic callback contract
-│   └── BonsaiStarterLowLevel.sol   // Starter template for low-level callback contract
-├── tests                           // Your Ethereum contract tests live here
-│   ├── BonsaiStarter.t.sol         // Tests for basic callback contract
-│   └── BonsaiStarterLowLevel.t.sol // Tests for low-level callback contract
-└── methods                         // [zkVM guest programs] are built here
-    ├── Cargo.toml
-    ├── build.rs                    // Instructions for the risc0-build rust crate
-    ├── guest                       // A rust crate containing your [zkVM guest programs]
-    │   ├── Cargo.toml
-    │   └── src
-    │       └── bin                 // Your [zkVM guest programs] live here
-    │           └── fibonacci.rs    // Example [guest program] for fibonacci number calculation
-    └── src
-        ├── main.rs                 // Glue binary for locally testing Bonsai applications
-        └── lib.rs                  // Built RISC Zero guest programs are compiled into here
+User f39fd6e5: 725886 ==> 447867
+User 70997970: 447867 ==> 124632
+User 3c44cddd: 998605 ==> 998605
+User 90f79bf6: 873652 ==> 305078
+User 15d34aaf: 124632 ==> 725886
+User 9965507d: 305078 ==> 873652
 ```
+## Improvements
+For the sake of simplicity, the contract assumes a fixed size user pool and the contract can only progress when all users have participated in a given phase. It would be better to relax this assumption, to allow an open user pool, and to be able to run the TTC algorithm and reallocate tokens at any time. However, certain limitations in solidity make it so you would need to do this very carefully if you were going to naively use the events and functions that I defined. The event logging and function to reallocate would increase in cost proportionally with the size of the trade pool.
 
-### Contracts
+This implementation makes no use of the ZK aspects of the risc0 machinery, only requiring a STARK-like proof of the result. In fact the game theoretic properties of the algorithm indicate that even if you wanted to use a commit-reveal style "private ranking", nothing would really be gained.
 
-Ethereum contracts should be written in the `contracts` directory, where the two primary starter template contracts live.
-The Solidity libraries for Bonsai can be found at [github.com/risc0/risc0](https://github.com/risc0/risc0/tree/main/bonsai/ethereum)
-
-Contracts are built and tested with [forge], which is part of the [Foundry] toolkit.
-Tests are defined in the `tests` directory.
-
-### Methods
-
-[RISC Zero] guest programs are defined in the `methods` directory.
-This is where you will define one or more guest programs to act as a coprocessor to your on-chain logic.
-More example of what you can do in the guest can be found in the [RISC Zero examples].
-
-Code in the `methods/guest` directory will be compiled into one or more [RISC-V] binaries.
-Each will have a corresponding image ID, which is a hash identifying the program.
-When deploying your application, you will upload your binary to Bonsai where the guest will run when requested.
-The image ID will be included in the deployment of the smart contracts to reference your guest program living in Bonsai.
-
-Build configuration for the methods is included in `methods/build.rs`.
-
-[Bonsai]: https://dev.bonsai.xyz/
-[Foundry]: https://getfoundry.sh/
-[Groth16 SNARK proof]: https://www.risczero.com/news/on-chain-verification
-[RISC Zero examples]: https://github.com/risc0/risc0/tree/main/examples
-[RISC Zero]: https://www.risczero.com/
-[RISC-V]: https://www.risczero.com/docs/reference-docs/about-risc-v
-[https://book.getfoundry.sh/forge/tests]: https://book.getfoundry.sh/forge/tests
-[receipt]: https://dev.risczero.com/zkvm/developer-guide/receipts
-[risc0/risc0]: https://github.com/risc0/risc0/tree/main/bonsai/ethereum-relay
-[zkVM guest program]: https://www.dev.risczero.com/terminology#guest-program
-[zkVM]: https://www.dev.risczero.com/terminology#zero-knowledge-virtual-machine-zkvm

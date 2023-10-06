@@ -1,250 +1,136 @@
 let upstream =
-      https://github.com/purescript/package-sets/releases/download/psc-0.14.2-20210629/packages.dhall sha256:534c490bb73cae75adb5a39871142fd8db5c2d74c90509797a80b8bb0d5c3f7b
+      https://raw.githubusercontent.com/f-o-a-m/package-sets/purs-0.15-web3/purs-0.15.7-web3.dhall
+        sha256:cb35bdebefab6fd0d9b0a09b1f461cd8e053509b12ee17099d9324287d20f1f5
 
-let overrides = {=}
 
 let additions =
-      { web3 =
-        { dependencies =
-          [ "aff"
-          , "avar"
-          , "console"
-          , "coroutines"
-          , "coroutine-transducers"
-          , "debug"
-          , "effect"
-          , "errors"
-          , "eth-core"
-          , "foreign"
-          , "foreign-generic"
-          , "fork"
-          , "free"
-          , "heterogeneous"
-          , "identity"
-          , "parsing"
-          , "partial"
-          , "profunctor-lenses"
-          , "psci-support"
-          , "tagged"
-          , "transformers"
-          , "typelevel-prelude"
-          , "variant"
-          ]
-        , repo = "https://github.com/f-o-a-m/purescript-web3"
-        , version = "0cd07f8"
-        }
-      , web3-generator =
-          { dependencies =
-            [ "ansi"
-            , "argonaut"
-            , "console"
-            , "effect"
-            , "errors"
-            , "eth-core"
-            , "fixed-points"
-            , "mkdirp"
-            , "node-fs-aff"
-            , "ordered-collections"
-            , "prelude"
-            , "psci-support"
-            , "record-extra"
-            , "string-parsers"
-            , "web3"
-            , "yargs"
-            ]
-          , repo = "https://github.com/f-o-a-m/purescript-web3-generator"
-          , version = "211e56d"
-          }
-      , eth-core =
-        { dependencies =
-            [ "argonaut"
-            , "bytestrings"
-            , "console"
-            , "debug"
-            , "effect"
-            , "foreign-generic"
-            , "ordered-collections"
-            , "parsing"
-            , "prelude"
-            , "psci-support"
-            , "ring-modules"
-            , "simple-json"
-            ]
-        , repo =
-            "https://github.com/f-o-a-m/purescript-eth-core.git"
-        , version =
-            "v8.0.0"
-        }
-      , coroutine-transducers =
-        { dependencies =
-            [ "aff"
-            , "coroutines"
-            , "effect"
-            , "maybe"
-            , "psci-support"
-            ]
-        , repo =
-            "https://github.com/blinky3713/purescript-coroutine-transducers"
-        , version =
-            "v1.0.0"
-        }
-      , solc =
+      { solc =
         { dependencies =
           [ "aff"
           , "argonaut"
-          , "console"
-          , "effect"
-          , "node-path"
-          , "prelude"
-          , "psci-support"
-          , "web3"
-          ]
-        , repo =
-            "https://github.com/f-o-a-m/purescript-solc"
-        , version =
-            "v3.0.0"
-        }
-      , mkdirp =
-        { dependencies =
-            [ "console"
-            , "effect"
-            , "either"
-            , "exceptions"
-            , "functions"
-            , "node-fs"
-            , "nullable"
-            , "prelude"
-            , "psci-support"
-            ]
-        , repo =
-            "https://github.com/f-o-a-m/purescript-mkdirp"
-        , version =
-            "v1.0.0"
-        }
-      , tagged =
-        { dependencies =
-            [ "identity"
-            , "profunctor"
-            ]
-        , repo =
-            "https://github.com/kejace/purescript-tagged"
-        , version =
-            "v0.14"
-        }
-      , chanterelle =
-        { dependencies =
-          [ "console"
-          , "debug"
-          , "effect"
-          , "foreign-object"
-          , "logging"
-          , "mkdirp"
-          , "node-process"
-          , "optparse"
-          , "prelude"
-          , "psci-support"
-          , "solc"
-          , "validation"
-          , "web3"
-          , "web3-generator"
-          ]
-        , repo = "https://github.com/f-o-a-m/chanterelle"
-        , version = "v6.0.0"
-        }
-      , dodo-printer =
-        { dependencies =
-          [ "ansi", "foldable-traversable", "lists", "maybe", "strings" ]
-        , repo = "https://github.com/natefaubion/purescript-dodo-printer.git"
-        , version = "v2.1.0"
-        }
-      , language-cst-parser =
-        { dependencies =
-          [ "arrays"
-          , "const"
+          , "argonaut-codecs"
+          , "arrays"
+          , "bifunctors"
+          , "control"
           , "effect"
           , "either"
+          , "eth-core"
           , "foldable-traversable"
-          , "free"
-          , "functors"
+          , "foreign-object"
+          , "functions"
+          , "integers"
           , "maybe"
-          , "numbers"
-          , "ordered-collections"
+          , "newtype"
+          , "node-path"
+          , "prelude"
           , "strings"
           , "transformers"
           , "tuples"
-          , "typelevel-prelude"
           ]
-        , repo =
-            "https://github.com/natefaubion/purescript-language-cst-parser.git"
-        , version = "v0.9.1"
+        , repo = "https://github.com/f-o-a-m/purescript-solc.git"
+        , version = "v4.2.0"
         }
-      , tidy =
-        { dependencies =
-          [ "arrays"
-          , "dodo-printer"
-          , "foldable-traversable"
-          , "lists"
-          , "maybe"
-          , "ordered-collections"
-          , "partial"
-          , "prelude"
-          , "language-cst-parser"
-          , "strings"
-          , "tuples"
-          ]
-        , repo =
-            "https://github.com/natefaubion/purescript-tidy.git"
-        , version = "v0.5.3"
-        }
-      , language-cst-codegen =
+      , web3-generator =
         { dependencies =
           [ "aff"
           , "ansi"
+          , "argonaut"
+          , "argonaut-codecs"
+          , "argonaut-core"
+          , "argonaut-traversals"
+          , "arrays"
+          , "bifunctors"
+          , "console"
+          , "control"
+          , "effect"
+          , "either"
+          , "errors"
+          , "eth-core"
+          , "exceptions"
+          , "fixed-points"
+          , "foldable-traversable"
+          , "identity"
+          , "integers"
+          , "lists"
+          , "maybe"
+          , "language-cst-parser"
+          , "tidy-codegen"
+          , "mkdirp"
+          , "newtype"
+          , "node-buffer"
+          , "node-fs"
+          , "node-fs-aff"
+          , "node-path"
+          , "node-process"
+          , "ordered-collections"
+          , "optparse"
+          , "partial"
+          , "prelude"
+          , "profunctor-lenses"
+          , "string-parsers"
+          , "strings"
+          , "transformers"
+          , "tuples"
+          , "web3"
+          ]
+        , repo = "https://github.com/f-o-a-m/purescript-web3-generator.git"
+        , version = "v6.0.0"
+        }
+      , chanterelle =
+        { dependencies =
+          [ "aff"
+          , "ansi"
+          , "argonaut"
+          , "argonaut-core"
+          , "argonaut-traversals"
           , "arrays"
           , "avar"
           , "bifunctors"
           , "console"
           , "control"
-          , "dodo-printer"
+          , "datetime"
           , "effect"
           , "either"
-          , "enums"
+          , "errors"
+          , "eth-core"
           , "exceptions"
-          , "filterable"
           , "foldable-traversable"
-          , "free"
+          , "foreign-object"
+          , "functors"
           , "identity"
           , "integers"
-          , "language-cst-parser"
-          , "lazy"
-          , "lists"
+          , "js-date"
+          , "logging"
           , "maybe"
+          , "mkdirp"
           , "newtype"
           , "node-buffer"
-          , "node-child-process"
+          , "node-fs"
           , "node-fs-aff"
           , "node-path"
           , "node-process"
-          , "node-streams"
+          , "now"
+          , "optparse"
           , "ordered-collections"
           , "parallel"
           , "partial"
-          , "posix-types"
           , "prelude"
+          , "profunctor-lenses"
           , "record"
-          , "safe-coerce"
+          , "refs"
+          , "simple-json"
+          , "solc"
           , "strings"
-          , "tidy"
           , "transformers"
           , "tuples"
-          , "type-equality"
-          , "unicode"
+          , "unfoldable"
+          , "validation"
+          , "web3"
+          , "web3-generator"
           ]
-        , repo =
-            "https://github.com/natefaubion/purescript-tidy-codegen.git"
-        , version = "v1.1.1"
+        , repo = "https://github.com/f-o-a-m/chanterelle.git"
+        , version = "v7.0.0-rc4"
         }
       }
 
-in  upstream // overrides // additions
-
+in  upstream // additions

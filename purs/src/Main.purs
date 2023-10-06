@@ -44,12 +44,11 @@ import Matrix (formatMatrix)
 import Network.Ethereum.Core.HexString (unHex)
 import Network.Ethereum.Core.HexString as HexString
 import Network.Ethereum.Core.Signatures (nullAddress, unAddress)
-import Network.Ethereum.Types (Address, HexString, embed, mkAddress, mkHexString)
-import Network.Ethereum.Web3 (ChainCursor(..), Change(..), DLProxy(..), EventAction(..), Provider, TransactionOptions, UIntN, Web3, _from, _gas, _to, defaultTransactionOptions, eventFilter, forkWeb3, httpProvider, uIntNFromBigNumber)
+import Network.Ethereum.Types (Address, HexString, fromInt, mkAddress, mkHexString)
+import Network.Ethereum.Web3 (ChainCursor(..), Change(..), EventAction(..), Provider, TransactionOptions, UIntN, Web3, _from, _gas, _to, defaultTransactionOptions, eventFilter, forkWeb3, httpProvider, uIntNFromBigNumber)
 import Network.Ethereum.Web3.Api (eth_getAccounts)
 import Network.Ethereum.Web3.Contract.Events (pollEvent')
-import Network.Ethereum.Web3.Solidity (unVector)
-import Network.Ethereum.Web3.Solidity.Sizes (S256)
+import Network.Ethereum.Web3.Solidity (unVector, Tuple2(..))
 import Network.Ethereum.Web3.Types (NoPay)
 import Node.Process (lookupEnv)
 import Partial.Unsafe (unsafePartial)
@@ -99,7 +98,7 @@ type AppData =
   , provider :: Provider
   }
 
-type TokenId = UIntN S256
+type TokenId = UIntN 256
 
 mkAppData :: Aff AppData
 mkAppData = do
@@ -274,16 +273,16 @@ verifyPreferences appData _users = do
         when (owner == user) $ do
           let prefIdxs = (0 .. (length prefs - 1))
           for_ prefIdxs \prefIndex -> do
-            pref <- TTC.preferenceListsArray txOpts Latest (unsafeToUInt ix) (unsafeToUInt prefIndex)
+            pref <- TTC.preferenceListsArray txOpts Latest $ Tuple2 (unsafeToUInt ix) (unsafeToUInt prefIndex)
             let trueVal = prefs !! prefIndex
             unless (Just pref == map Right trueVal)
               $ throwError
               $ error
               $ "For index " <> show ix <> ", " <> show prefIndex
-                <> "wanted "
-                <> show trueVal
-                <> " but got "
-                <> show pref
+                  <> "wanted "
+                  <> show trueVal
+                  <> " but got "
+                  <> show pref
   traverse_ f users
 
 closeRankings
@@ -368,10 +367,10 @@ verifyOutcomes users = do
       $ liftEffect
       $ throw
       $ "Unexpected trade for user " <> formatAddress user <> ":\n"
-        <> "expected "
-        <> show expectedTrade
-        <> " but got "
-        <> show trade
+          <> "expected "
+          <> show expectedTrade
+          <> " but got "
+          <> show trade
   Console.log "Verified outcomes"
   where
   expected = unsafePartial $ fromJust $ traverse mkCycle
@@ -417,18 +416,18 @@ resetContract appData = do
 defaultTokenTxOpts :: AppData -> TransactionOptions NoPay
 defaultTokenTxOpts appData =
   defaultTransactionOptions
-    # _gas ?~ embed 1000000
+    # _gas ?~ fromInt 1000000
     # _to ?~ appData.token
 
 defaultTTCTxOpts :: AppData -> TransactionOptions NoPay
 defaultTTCTxOpts appData =
   defaultTransactionOptions
-    # _gas ?~ embed 1000000
+    # _gas ?~ fromInt 1000000
     # _to ?~ appData.ttc
 
-unsafeToUInt :: Int -> UIntN S256
+unsafeToUInt :: Int -> UIntN 256
 unsafeToUInt n =
-  unsafePartial $ fromJust $ uIntNFromBigNumber (DLProxy :: DLProxy S256) $ embed n
+  unsafePartial $ fromJust $ uIntNFromBigNumber (Proxy @256) $ fromInt n
 
 formatAddress :: Address -> String
 formatAddress a = unHex (HexString.takeBytes 4 (unAddress a))

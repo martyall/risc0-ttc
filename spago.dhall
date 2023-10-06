@@ -15,7 +15,7 @@ You can edit this file as you like.
   , "exceptions"
   , "foldable-traversable"
   , "homogeneous"
-  , "language-cst-codegen"
+  , "identity"
   , "lists"
   , "maybe"
   , "newtype"
