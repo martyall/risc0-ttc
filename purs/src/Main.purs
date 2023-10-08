@@ -3,7 +3,6 @@ module Main
   , TokenId
   , Users
   , awaitTTCResult
-  , awaitTransfer
   , buyTokens
   , closeRankings
   , closeSubmissions
@@ -20,44 +19,50 @@ module Main
 
 import Prelude
 
-import Chanterelle.Test (assertWeb3)
+import Chanterelle.Deploy (deploy, readDeployAddress)
+import Chanterelle.Logging (setLogLevel, LogLevel(..))
+import Chanterelle.Test (assertWeb3, takeEvent)
+import Chanterelle.Utils (pollTransactionReceipt)
 import Contracts.TTCTrading as TTC
 import Contracts.Token as Token
-import Control.Monad.Reader (ask)
-import Control.Parallel (parTraverse)
+import Control.Parallel (parTraverse, parTraverse_)
 import Cycle (applyCycles, mkCycle)
 import Data.Array (length, (!!), (..))
 import Data.Either (Either(..), either)
 import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
+import Data.Int (fromString)
 import Data.Lens ((?~))
 import Data.Maybe (Maybe(..), fromJust)
-import Data.Traversable (for, for_, sequence, traverse, traverse_)
+import Data.Traversable (for, for_, sequence, traverse)
+import Data.Tuple (Tuple(..), fst)
+import Deploy.ContractConfig (tokenLibCfg, ttcLibCfg)
 import Effect (Effect)
-import Effect.Aff (Aff, error, joinFiber, launchAff_, throwError)
-import Effect.Aff.AVar as AVar
+import Effect.Aff (Aff, error, launchAff_, throwError)
 import Effect.Aff.Class (liftAff)
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Console
 import Effect.Exception (throw)
 import Effect.Random (randomInt)
 import Matrix (formatMatrix)
+import Network.Ethereum.Core.BigNumber (BigNumber)
 import Network.Ethereum.Core.HexString (unHex)
 import Network.Ethereum.Core.HexString as HexString
-import Network.Ethereum.Core.Signatures (nullAddress, unAddress)
-import Network.Ethereum.Types (Address, HexString, fromInt, mkAddress, mkHexString)
-import Network.Ethereum.Web3 (ChainCursor(..), Change(..), EventAction(..), Provider, TransactionOptions, UIntN, Web3, _from, _gas, _to, defaultTransactionOptions, eventFilter, forkWeb3, httpProvider, uIntNFromBigNumber)
-import Network.Ethereum.Web3.Api (eth_getAccounts)
+import Network.Ethereum.Core.Signatures (unAddress)
+import Network.Ethereum.Types (Address, HexString, fromInt)
+import Network.Ethereum.Web3 (ChainCursor(..), EventAction(..), Provider, TransactionOptions, TransactionReceipt(..), TransactionStatus(..), UIntN, Web3, _from, _gas, _to, defaultTransactionOptions, eventFilter, httpProvider, runWeb3, uIntNFromBigNumber)
+import Network.Ethereum.Web3.Api (eth_getAccounts, net_version)
 import Network.Ethereum.Web3.Contract.Events (pollEvent')
-import Network.Ethereum.Web3.Solidity (unVector, Tuple2(..))
+import Network.Ethereum.Web3.Solidity (unVector)
 import Network.Ethereum.Web3.Types (NoPay)
-import Node.Process (lookupEnv)
 import Partial.Unsafe (unsafePartial)
 import Type.Proxy (Proxy(..))
 
 main :: Effect Unit
-main = launchAff_ do
+main = setLogLevel Debug *> launchAff_ do
+
   appData <- mkAppData
   t <- buyTokens appData
+  Console.log $ "bought tokens: " <> show t
   transferTokensToTTC appData t
   Console.info "Transfered tokens to TTC"
   _ <- closeSubmissions appData
@@ -102,17 +107,21 @@ type TokenId = UIntN 256
 
 mkAppData :: Aff AppData
 mkAppData = do
-  provider <- liftEffect $ httpProvider "http://localhost:8545"
-  mtoken <- liftEffect $ lookupEnv "TOKEN_ADDRESS"
-  mttc <- liftEffect $ lookupEnv "TTC_ADDRESS"
-  let
-    { token, ttc } = unsafePartial $ fromJust do
-      token <- mtoken >>= mkHexString >>= mkAddress
-      ttc <- mttc >>= mkHexString >>= mkAddress
-      pure { token, ttc }
-  users <- assertWeb3 provider getAccounts
+  let nodeURL = "http://localhost:8545"
+  provider <- liftEffect $ httpProvider nodeURL
+  networkId <- do
+    version <- liftAff $ assertWeb3 provider net_version
+    case fromString version of
+      Nothing -> throwError $ error $ "Unknown network version: " <> version
+      Just v -> pure v
+  { token, ttc } <- deploy nodeURL 10 do
+    token <- readDeployAddress tokenLibCfg networkId
+    ttc <- readDeployAddress ttcLibCfg networkId
+    pure { token, ttc }
+  eusers <- runWeb3 provider getAccounts
+  users <- either (throwError <<< error <<< show) pure eusers
   let primaryAccount = users.user1
-  pure { provider, token, ttc, users, primaryAccount }
+  pure { provider, users, ttc, token, primaryAccount }
   where
   getAccounts :: Web3 (Users Address)
   getAccounts = do
@@ -128,25 +137,6 @@ mkAppData = do
         }
     pure $ unsafePartial fromJust $ accounts
 
-awaitTransfer
-  :: AppData
-  -> { from :: Address, to :: Address }
-  -> Web3 TokenId
-awaitTransfer appData { from, to } =
-  let
-    mintMonitor var = \(Token.Transfer t) ->
-      if t.from == from && t.to == to then do
-        liftAff $ AVar.put t.tokenId var
-        pure TerminateEvent
-      else
-        pure ContinueEvent
-    mintFilter = eventFilter (Proxy :: Proxy Token.Transfer) appData.token
-  in
-    do
-      var <- liftAff $ AVar.empty
-      void $ pollEvent' { f: mintFilter } { f: mintMonitor var }
-      liftAff $ AVar.take var
-
 buyTokens
   :: AppData
   -> Aff (Users { user :: Address, tokenId :: TokenId })
@@ -155,60 +145,43 @@ buyTokens appData = do
   tokenIds <- for users $ \user -> do
     tokenId <- unsafeToUInt <$> liftEffect (randomInt 1 10000)
     pure { user, tokenId }
-  mintFibers <-
-    let
-      f { user } = forkWeb3 appData.provider $
-        awaitTransfer appData { to: user, from: nullAddress }
-    in
-      parTraverse f tokenIds
-  _ <- assertWeb3 appData.provider $ for tokenIds $ \{ user, tokenId } ->
-    let
-      txOpts = defaultTokenTxOpts appData #
-        _from ?~ appData.primaryAccount
-    in
-      Token.mintToken txOpts { to: user, tokenId }
-  res <- parTraverse joinFiber mintFibers
-  case sequence res of
-    Left err -> throwError $ error $ "Failed to find tokens: " <> show err
-    Right _ -> pure $ fromHomogeneous tokenIds
+  let
+    f { user, tokenId } = assertWeb3 appData.provider do
+      let
+        txOpts = defaultTokenTxOpts appData #
+          _from ?~ user
+        action = Token.mintToken txOpts { to: user, tokenId }
+      void $ takeEvent (Proxy @Token.Transfer) appData.token action
+  parTraverse_ f tokenIds
+  pure $ fromHomogeneous tokenIds
 
 transferTokensToTTC
   :: AppData
   -> Users { user :: Address, tokenId :: TokenId }
   -> Aff Unit
 transferTokensToTTC appData _users = do
-  let users = homogeneous _users
-  transferFibers <-
-    let
-      f { user } = forkWeb3 appData.provider $
-        awaitTransfer appData { from: user, to: appData.ttc }
-    in
-      parTraverse f users
-  _ <- assertWeb3 appData.provider $
-    let
-      f { user, tokenId } = do
-        let
-          tokenOpts = defaultTokenTxOpts appData #
-            _from ?~ user
-        void $ Token.approve tokenOpts { to: appData.ttc, tokenId }
-        let
-          ttcOpts = defaultTTCTxOpts appData #
-            _from ?~ user
-        TTC.submitToken ttcOpts { _tokenId: tokenId }
-    in
-      parTraverse f users
-  res <- parTraverse joinFiber transferFibers
-  case sequence res of
-    Left err -> throwError $ error $ "Failed to find token all token transfers: " <> show err
-    Right _ -> pure unit
+  let
+    users = homogeneous _users
+    f { user, tokenId } = assertWeb3 appData.provider do
+      let
+        tokenOpts = defaultTokenTxOpts appData #
+          _from ?~ user
+        approval = Token.approve tokenOpts { to: appData.ttc, tokenId }
+      void $ takeEvent (Proxy @Token.Approval) appData.token approval
+      let
+        ttcOpts = defaultTTCTxOpts appData #
+          _from ?~ user
+        action = TTC.submitToken ttcOpts { _tokenId: tokenId }
+      void $ takeEvent (Proxy @Token.Transfer) appData.token action
+  parTraverse_ f users
 
 closeSubmissions :: AppData -> Aff HexString
-closeSubmissions appData = assertWeb3 appData.provider $
+closeSubmissions appData = assertWeb3 appData.provider $ do
   let
     txOpts = defaultTTCTxOpts appData #
       _from ?~ appData.primaryAccount
-  in
-    TTC.sealTokensAndStartRanking txOpts
+    action = TTC.sealTokensAndStartRanking txOpts
+  fst <$> takeEvent (Proxy @TTC.PhaseChanged) appData.ttc action
 
 ranks
   :: Users { user :: Address, tokenId :: TokenId }
@@ -245,16 +218,16 @@ rankTokens
   -> Users { user :: Address, prefs :: Array TokenId | r }
   -> Aff Unit
 rankTokens appData _users = do
-  let users = homogeneous _users
   let
-    f { user, prefs } = assertWeb3 appData.provider $
+    users = homogeneous _users
+    f { user, prefs } = do
       let
         txOpts = defaultTTCTxOpts appData #
           _from ?~ user
-      in
-        TTC.submitPreferences txOpts { _preferenceList: prefs }
-  _ <- parTraverse f users
-  pure unit
+      txHash <- assertWeb3 appData.provider $ TTC.submitPreferences txOpts { _preferenceList: prefs }
+      TransactionReceipt { status } <- pollTransactionReceipt txHash appData.provider
+      when (status /= Succeeded) $ throwError $ error $ "rankTokens transaction failed: " <> show txHash
+  parTraverse_ f users
 
 verifyPreferences
   :: AppData
@@ -273,7 +246,7 @@ verifyPreferences appData _users = do
         when (owner == user) $ do
           let prefIdxs = (0 .. (length prefs - 1))
           for_ prefIdxs \prefIndex -> do
-            pref <- TTC.preferenceListsArray txOpts Latest $ Tuple2 (unsafeToUInt ix) (unsafeToUInt prefIndex)
+            pref <- TTC.preferenceListsArray txOpts Latest $ { _1: unsafeToUInt ix, _2: unsafeToUInt prefIndex }
             let trueVal = prefs !! prefIndex
             unless (Just pref == map Right trueVal)
               $ throwError
@@ -283,37 +256,21 @@ verifyPreferences appData _users = do
                   <> show trueVal
                   <> " but got "
                   <> show pref
-  traverse_ f users
+  parTraverse_ f users
 
 closeRankings
   :: AppData
   -> Aff Unit
-closeRankings appData = do
-  f <- forkWeb3 appData.provider awaitTokenDetailsEmitted
-  _ <- assertWeb3 appData.provider $
-    let
-      txOpts = defaultTTCTxOpts appData #
-        _from ?~ appData.primaryAccount
-    in
-      TTC.lockRankingAndExecuteTTC txOpts
-  res <- joinFiber f
-  case res of
-    Left err -> throwError $ error $ "Failed to find DetailsEmitted: " <> show err
-    Right _ -> pure unit
-
-  where
-  awaitTokenDetailsEmitted =
-    let
-      tdeMonitor = \(TTC.TokenDetailsEmitted { tokenIds, preferenceLists }) -> do
-        Change c <- ask
-        Console.log $ "TokenDetailsEmittedEvent: \n" <> unHex c.data
-        Console.info $
-          "Corresponds to preference matrix: \n" <>
-            formatMatrix { header: unVector tokenIds, matrix: unVector preferenceLists }
-        pure TerminateEvent
-      tdeFilter = eventFilter (Proxy :: Proxy TTC.TokenDetailsEmitted) appData.ttc
-    in
-      void $ pollEvent' { f: tdeFilter } { f: tdeMonitor }
+closeRankings appData = assertWeb3 appData.provider $ do
+  let
+    txOpts = defaultTTCTxOpts appData #
+      _from ?~ appData.primaryAccount
+    action = TTC.lockRankingAndExecuteTTC txOpts
+  Tuple _ ev <- takeEvent (Proxy @TTC.TokenDetailsEmitted) appData.ttc action
+  let TTC.TokenDetailsEmitted { tokenIds, preferenceLists } = ev
+  Console.info $
+    "Corresponds to preference matrix: \n" <>
+      formatMatrix { header: unVector tokenIds, matrix: unVector preferenceLists }
 
 awaitTTCResult
   :: AppData
@@ -333,27 +290,17 @@ retrieveTokens
   -> Users { user :: Address, tokenId :: TokenId | r }
   -> Aff (Users { user :: Address, tokenId :: TokenId, trade :: TokenId })
 retrieveTokens appData _users = do
-  let users = homogeneous _users
-  transferFibers <-
-    let
-      f { user, tokenId } = forkWeb3 appData.provider $ do
-        trade <- awaitTransfer appData { from: appData.ttc, to: user }
-        pure { user, tokenId, trade }
-    in
-      parTraverse f users
-  _ <- assertWeb3 appData.provider $
-    let
-      f { user } = do
-        let
-          ttcOpts = defaultTTCTxOpts appData #
-            _from ?~ user
-        TTC.retrieveToken ttcOpts
-    in
-      parTraverse f users
-  res <- parTraverse joinFiber transferFibers
-  case sequence res of
-    Left err -> throwError $ error $ "Failed to find token all token transfers: " <> show err
-    Right a -> pure $ fromHomogeneous a
+  let
+    users = homogeneous _users
+    f { user, tokenId } = assertWeb3 appData.provider $ do
+      let
+        ttcOpts = defaultTTCTxOpts appData #
+          _from ?~ user
+        action = TTC.retrieveToken ttcOpts
+      Tuple _ (Token.Transfer t) <- takeEvent (Proxy @Token.Transfer) appData.token action
+      pure { user, tokenId, trade: t.tokenId }
+  res <- parTraverse f users
+  pure $ fromHomogeneous res
 
 verifyOutcomes
   :: forall r
@@ -390,39 +337,25 @@ displayTrades _users = do
 resetContract
   :: AppData
   -> Aff Unit
-resetContract appData = do
-  f <- forkWeb3 appData.provider awaitPhaseChange
-  _ <- assertWeb3 appData.provider $
-    let
-      txOpts = defaultTTCTxOpts appData #
-        _from ?~ appData.primaryAccount
-    in
-      TTC.reset txOpts
-  res <- joinFiber f
-  case res of
-    Left err -> throwError $ error $ "Failed to reset contract: " <> show err
-    Right _ -> pure unit
-
-  where
-  awaitPhaseChange =
-    let
-      monitor = \(TTC.PhaseChanged { newPhase }) -> do
-        Console.log $ "Phase changed to " <> show newPhase <> " (0 == Submit Phase)"
-        pure TerminateEvent
-      filter = eventFilter (Proxy :: Proxy TTC.PhaseChanged) appData.ttc
-    in
-      void $ pollEvent' { f: filter } { f: monitor }
+resetContract appData = void $ runWeb3 appData.provider do
+  Console.log "Resetting Contract"
+  let
+    txOpts = defaultTTCTxOpts appData #
+      _from ?~ appData.primaryAccount
+    action = TTC.reset txOpts
+  Tuple _ e <- takeEvent (Proxy @TTC.PhaseChanged) appData.ttc action
+  Console.log $ "Phase changed to " <> show e <> " (0 == Submit Phase)"
 
 defaultTokenTxOpts :: AppData -> TransactionOptions NoPay
 defaultTokenTxOpts appData =
   defaultTransactionOptions
-    # _gas ?~ fromInt 1000000
+    # _gas ?~ bigGasLimit
     # _to ?~ appData.token
 
 defaultTTCTxOpts :: AppData -> TransactionOptions NoPay
 defaultTTCTxOpts appData =
   defaultTransactionOptions
-    # _gas ?~ fromInt 1000000
+    # _gas ?~ bigGasLimit
     # _to ?~ appData.ttc
 
 unsafeToUInt :: Int -> UIntN 256
@@ -431,3 +364,6 @@ unsafeToUInt n =
 
 formatAddress :: Address -> String
 formatAddress a = unHex (HexString.takeBytes 4 (unAddress a))
+
+bigGasLimit :: BigNumber
+bigGasLimit = fromInt 5000000

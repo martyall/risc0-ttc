@@ -136,17 +136,17 @@ phase :: TransactionOptions NoPay -> ChainCursor -> Web3 (Either CallError (UInt
 phase txOpts chainCursor = map unTuple1 <$> call txOpts chainCursor (tagged Tuple0 :: FnPhaseInput)
 
 type FnPreferenceListsArrayInput = Tagged "preferenceListsArray(uint256,uint256)"
-  (Tuple2 (UIntN 256) (UIntN 256))
+  (Tuple2 (Tagged "_1" (Identity (UIntN 256))) (Tagged "_2" (Identity (UIntN 256))))
 
 type FnPreferenceListsArrayOutput = Tuple1 (UIntN 256)
 
 preferenceListsArray
   :: TransactionOptions NoPay
   -> ChainCursor
-  -> Tuple2 (UIntN 256) (UIntN 256)
+  -> { _1 :: UIntN 256, _2 :: UIntN 256 }
   -> Web3 (Either CallError (UIntN 256))
 preferenceListsArray txOpts chainCursor x = map unTuple1 <$> call txOpts chainCursor
-  (tagged x :: FnPreferenceListsArrayInput)
+  (tagged (fromRecord x) :: FnPreferenceListsArrayInput)
 
 type FnResetInput = Tagged "reset()" Tuple0
 type FnResetOutput = Tuple0

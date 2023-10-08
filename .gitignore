@@ -26,3 +26,4 @@ build
 output
 .vscode
 .psc-ide-port
+.psci_modules

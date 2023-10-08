@@ -1,4 +1,4 @@
-module Contracts.Verifier where
+module Contracts.TestRelay where
 
 import Prelude
 
