@@ -4,7 +4,8 @@
   "scripts": {
     "postinstall": "spago -x bootstrap.dhall build --deps-only",
     "chanterelle-build": "spago -x bootstrap.dhall run -m ChanterelleMain --node-args=\"build\"",
-    "build-dapp": "spago -x chanterelle.dhall build",
+    "build": "spago build",
+    "test": "spago run",
     "tidy": "purs-tidy format-in-place \"src/**/*.purs\" \"test/**/*.purs\"",
     "tidy-check": "purs-tidy check \"src/**/*.purs\" \"test/**/*.purs\""
   },

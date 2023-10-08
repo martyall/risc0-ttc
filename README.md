@@ -105,7 +105,7 @@ export BONSAI_RELAY_ADDRESS=0x5fbdb2315678afecb367f032d93f642f64180aa3; \
 Now you can run the example script to simulate a complete flow of the application.
 
 ```bash
-> npx spago run
+> npm run test
 ```
 
 You should see a bunch of logs printed to the console, including a matrix representing the ranked choices as well as a mapping indicating the final trades, 
