@@ -74,37 +74,41 @@ Start the blockchain with anvil
 > anvil
 ```
 
+Query the `ImageID` for the TTC program (needed for proving and verifying)
+
+```bash
+> cargo run -q query TRADE
+```
+
+You should see a 32 byte hash, e.g. `243c17eb777903742a75a2c3cd450b78d993423d65e0efb82e6f01fe3fb6044b` at the time of this writing.
+
 Run the deploy script for the smart contracts:
 
 ```bash
-> RISC0_DEV_MODE=true forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast
+IMAGE_ID=<MY_IMAGE_ID> npx spago run -m Deploy.Main
 ```
 
-You should see some output indicating the contract address, something lke 
+You should see some output indicating the contract addresses, something lke 
 
 ```
-== Logs ==
-  Deployed BonsaiTestRelay to  0x5FbDB2315678afecb367f032d93F642f64180aa3
-  Image ID for TRADE is  0x6f204468e12dd3d51f4a04cc5954246a585888a68fdd660bc67ecf385990ecc7
-  0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
-  0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
-
+...
+[INFO] Deployment Successful!
+[INFO] TestRelay Address: 5fbdb2315678afecb367f032d93f642f64180aa3
+[INFO] TTCTrading Address: 9fe46736679d2d9a65f0992f2272de9f3c7fa6e0
 ```
 
 The first address is the `Token` contract, the second is the `TTCTrading` contract. You can start the relay service up with
 
 ```bash
-export BONSAI_RELAY_ADDRESS=0x5FbDB2315678afecb367f032d93F642f64180aa3; \                
-  export APP_ADDRESS=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0; \
+export BONSAI_RELAY_ADDRESS=0x5fbdb2315678afecb367f032d93f642f64180aa3; \                
+  export APP_ADDRESS=0x5fbdb2315678afecb367f032d93f642f64180aa3; \
   RISC0_DEV_MODE=true cargo run --bin bonsai-ethereum-relay-cli -- run --relay-address "$BONSAI_RELAY_ADDRESS"
 ```
 
-Now you can run the script: 
+Now you can run the example script to simulate a complete flow of the application.
 
 ```bash
-TTC_ADDRESS=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0 \
-  TOKEN_ADDRESS=0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 \
-  npx spago run
+> npx spago run
 ```
 
 You should see a bunch of logs printed to the console, including a matrix representing the ranked choices as well as a mapping indicating the final trades, 

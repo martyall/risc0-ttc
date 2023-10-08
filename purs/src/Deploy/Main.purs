@@ -3,6 +3,7 @@ module Deploy.Main (main, mkEnv) where
 import Prelude
 
 import Chanterelle.Deploy (deploy)
+import Chanterelle.Logging (LogLevel(..), log)
 import Control.Error.Util (exceptNoteA, exceptNoteM)
 import Control.Monad.Except (runExceptT)
 import Data.Either (either)
@@ -12,10 +13,9 @@ import Deploy (deployScript)
 import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Class (liftEffect)
-import Effect.Class.Console as Console
 import Effect.Exception (throw)
 import Network.Ethereum.Core.HexString (toByteString)
-import Network.Ethereum.Web3 (BytesN, mkHexString)
+import Network.Ethereum.Web3 (BytesN, mkHexString, unAddress)
 import Network.Ethereum.Web3 as BytesN
 import Node.Process as Env
 import Type.Proxy (Proxy(..))
@@ -24,8 +24,10 @@ main :: Effect Unit
 main = do
   { imageId, nodeURL, timeoutSeconds } <- mkEnv
   launchAff_ $ do
-    deployResults <- deploy nodeURL timeoutSeconds $ deployScript { imageId }
-    Console.log $ "Deployment Successful\n" <> show deployResults
+    res <- deploy nodeURL timeoutSeconds $ deployScript { imageId }
+    log Info $ "Deployment Successful!"
+    log Info $ "TestRelay Address: " <> show (unAddress res.testRelay)
+    log Info $ "TTCTrading Address: " <> show (unAddress res.ttc)
 
 mkEnv :: Effect { imageId :: BytesN 32, nodeURL :: String, timeoutSeconds :: Int }
 mkEnv = do
