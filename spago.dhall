@@ -6,10 +6,8 @@ You can edit this file as you like.
 , dependencies =
   [ "aff"
   , "arrays"
-  , "avar"
   , "chanterelle"
   , "console"
-  , "debug"
   , "effect"
   , "either"
   , "errors"
@@ -33,7 +31,6 @@ You can edit this file as you like.
   , "transformers"
   , "tuples"
   , "unfoldable"
-  , "unsafe-coerce"
   , "web3"
   ]
 , packages = ./packages.dhall
