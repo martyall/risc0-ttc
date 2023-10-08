@@ -1,4 +1,4 @@
-module Matrix (formatMatrix) where
+module Matrix (prettyPrintMatrix) where
 
 import Prelude
 
@@ -9,24 +9,24 @@ import Data.String as String
 import Data.Unfoldable (replicate)
 import Partial.Unsafe (unsafePartial)
 
-formatMatrix
+prettyPrintMatrix
   :: forall a
    . Show a
   => { header :: Array a, matrix :: Array (Array a) }
   -> String
-formatMatrix { header, matrix } =
-  prettyPrintMatrix header
+prettyPrintMatrix { header, matrix } =
+  prettyPrintMatrix' header
     $ transpose
     $
       map (padArray (length header)) matrix
 
-prettyPrintMatrix
+prettyPrintMatrix'
   :: forall a
    . Show a
   => Array a
   -> Array (Array (Maybe a))
   -> String
-prettyPrintMatrix header m =
+prettyPrintMatrix' header m =
   let
     m' = map (maybe "X" show) <$> m
     maxEntryLength = unsafePartial

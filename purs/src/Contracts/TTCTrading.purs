@@ -6,41 +6,32 @@ import Data.Either (Either)
 import Data.Eq.Generic (genericEq)
 import Data.Functor.Tagged (Tagged, tagged)
 import Data.Generic.Rep (class Generic)
+import Data.Identity (Identity)
 import Data.Lens (set)
 import Data.Maybe (Maybe(..), fromJust)
 import Data.Newtype (class Newtype)
 import Data.Show.Generic (genericShow)
-import Network.Ethereum.Web3 (Vector, class EventFilter, _address, _topics, call, deployContract, sendTx)
-import Network.Ethereum.Web3.Contract.Internal (uncurryFields)
-import Network.Ethereum.Web3.Solidity (BytesN, D2, D3, D5, D6, D8, DOne, UIntN, Tuple0(..), Tuple1(..), Tuple2(..), Tuple3(..), class IndexedEvent, unTuple1)
-import Network.Ethereum.Web3.Solidity.Size (type (:&))
-import Network.Ethereum.Web3.Types (Address, CallError, ChainCursor, HexString, NoPay, TransactionOptions, Web3, defaultFilter, mkHexString)
+import Network.Ethereum.Web3 (Vector, Web3, class EventFilter, _address, _topics, call, deployContract, sendTx)
+import Network.Ethereum.Web3.Solidity (ByteString, BytesN, Tuple2, Tuple3, UIntN, Tuple0(..), Tuple1(..), class IndexedEvent, fromRecord, unTuple1)
+import Network.Ethereum.Web3.Types (Address, CallError, ChainCursor, HexString, NoPay, TransactionOptions, defaultFilter, mkHexString)
 import Partial.Unsafe (unsafePartial)
-import Type.Proxy (Proxy)
 
-type ConstructorFn = Tagged (Proxy Void)
-  ( Tuple3 (Tagged (Proxy "_token") Address) (Tagged (Proxy "bonsaiRelay") Address)
-      (Tagged (Proxy "_imageId") (BytesN (D3 :& DOne D2)))
+type FnConstructorInput = Tagged Void
+  ( Tuple3 (Tagged "_token" (Identity Address)) (Tagged "bonsaiRelay" (Identity Address))
+      (Tagged "_imageId" (Identity (BytesN 32)))
   )
+
+type FnConstructorOutput = Tuple0
 
 constructor
   :: TransactionOptions NoPay
   -> HexString
-  -> { _token :: Address, bonsaiRelay :: Address, _imageId :: BytesN (D3 :& DOne D2) }
+  -> { _token :: Address, bonsaiRelay :: Address, _imageId :: BytesN 32 }
   -> Web3 HexString
-constructor x1 x2 x3 = uncurryFields x3 $ constructor' x1 x2
-  where
-  constructor'
-    :: TransactionOptions NoPay
-    -> HexString
-    -> Tagged (Proxy "_token") Address
-    -> Tagged (Proxy "bonsaiRelay") Address
-    -> Tagged (Proxy "_imageId") (BytesN (D3 :& DOne D2))
-    -> Web3 HexString
-  constructor' _x1 _x2 _x3 _x4 _x5 = deployContract _x1 _x2
-    (tagged $ Tuple3 _x3 _x4 _x5 :: ConstructorFn)
+constructor bytecode txOpts x = deployContract bytecode txOpts
+  (tagged (fromRecord x) :: FnConstructorInput)
 
-newtype PhaseChanged = PhaseChanged { newPhase :: UIntN (DOne D8) }
+newtype PhaseChanged = PhaseChanged { newPhase :: UIntN 8 }
 
 derive instance Newtype PhaseChanged _
 derive instance Generic PhaseChanged _
@@ -55,15 +46,13 @@ instance EventFilter PhaseChanged where
     ( Just
         [ Just $ unsafePartial $ fromJust $ mkHexString
             "a6dcc92f45df25789d5639b7a0c97ba1edf3bb1c0b5dd3376fd96a0db87c4642"
-        , Nothing
-        , Nothing
         ]
     )
 
-instance IndexedEvent Tuple0 (Tuple1 (Tagged (Proxy "newPhase") (UIntN (DOne D8)))) PhaseChanged where
+instance IndexedEvent Tuple0 (Tuple1 (Tagged "newPhase" (Identity (UIntN 8)))) PhaseChanged where
   isAnonymous _ = false
 
-newtype TTCResult = TTCResult { result :: Array (Array (UIntN (D2 :& D5 :& DOne D6))) }
+newtype TTCResult = TTCResult { result :: Array (Array (UIntN 256)) }
 
 derive instance Newtype TTCResult _
 derive instance Generic TTCResult _
@@ -78,21 +67,15 @@ instance EventFilter TTCResult where
     ( Just
         [ Just $ unsafePartial $ fromJust $ mkHexString
             "e9e3de945b165f61e7b722e151b49faba845b935ee3880b74cdfa09f3a0421de"
-        , Nothing
-        , Nothing
         ]
     )
 
 instance
-  IndexedEvent Tuple0
-    (Tuple1 (Tagged (Proxy "result") (Array (Array (UIntN (D2 :& D5 :& DOne D6))))))
-    TTCResult where
+  IndexedEvent Tuple0 (Tuple1 (Tagged "result" (Identity (Array (Array (UIntN 256)))))) TTCResult where
   isAnonymous _ = false
 
 newtype TokenDetailsEmitted = TokenDetailsEmitted
-  { tokenIds :: Vector (DOne D6) (UIntN (D2 :& D5 :& DOne D6))
-  , preferenceLists :: Vector (DOne D6) (Array (UIntN (D2 :& D5 :& DOne D6)))
-  }
+  { tokenIds :: Vector 6 (UIntN 256), preferenceLists :: Vector 6 (Array (UIntN 256)) }
 
 derive instance Newtype TokenDetailsEmitted _
 derive instance Generic TokenDetailsEmitted _
@@ -107,165 +90,133 @@ instance EventFilter TokenDetailsEmitted where
     ( Just
         [ Just $ unsafePartial $ fromJust $ mkHexString
             "e58780ba0390d72735fcc7f1706d8541c5cf7cfc291290971765006618f619fb"
-        , Nothing
-        , Nothing
         ]
     )
 
 instance
   IndexedEvent Tuple0
-    ( Tuple2 (Tagged (Proxy "tokenIds") (Vector (DOne D6) (UIntN (D2 :& D5 :& DOne D6))))
-        (Tagged (Proxy "preferenceLists") (Vector (DOne D6) (Array (UIntN (D2 :& D5 :& DOne D6)))))
+    ( Tuple2 (Tagged "tokenIds" (Identity (Vector 6 (UIntN 256))))
+        (Tagged "preferenceLists" (Identity (Vector 6 (Array (UIntN 256)))))
     )
     TokenDetailsEmitted where
   isAnonymous _ = false
 
-type MAX_PARTICIPANTSFn = Tagged (Proxy "MAX_PARTICIPANTS()") Tuple0
+type FnMAX_PARTICIPANTSInput = Tagged "MAX_PARTICIPANTS()" Tuple0
+type FnMAX_PARTICIPANTSOutput = Tuple1 (UIntN 8)
 
-mAX_PARTICIPANTS
-  :: TransactionOptions NoPay -> ChainCursor -> Web3 (Either CallError (UIntN (DOne D8)))
-mAX_PARTICIPANTS x1 x2 = map unTuple1 <$> call x1 x2 (tagged Tuple0 :: MAX_PARTICIPANTSFn)
+mAX_PARTICIPANTS :: TransactionOptions NoPay -> ChainCursor -> Web3 (Either CallError (UIntN 8))
+mAX_PARTICIPANTS txOpts chainCursor = map unTuple1 <$> call txOpts chainCursor
+  (tagged Tuple0 :: FnMAX_PARTICIPANTSInput)
 
-type BonsaiRelayFn = Tagged (Proxy "bonsaiRelay()") Tuple0
+type FnBonsaiRelayInput = Tagged "bonsaiRelay()" Tuple0
+type FnBonsaiRelayOutput = Tuple1 Address
 
 bonsaiRelay :: TransactionOptions NoPay -> ChainCursor -> Web3 (Either CallError Address)
-bonsaiRelay x1 x2 = map unTuple1 <$> call x1 x2 (tagged Tuple0 :: BonsaiRelayFn)
+bonsaiRelay txOpts chainCursor = map unTuple1 <$> call txOpts chainCursor
+  (tagged Tuple0 :: FnBonsaiRelayInput)
 
-type LockRankingAndExecuteTTCFn = Tagged (Proxy "lockRankingAndExecuteTTC()") Tuple0
+type FnLockRankingAndExecuteTTCInput = Tagged "lockRankingAndExecuteTTC()" Tuple0
+type FnLockRankingAndExecuteTTCOutput = Tuple0
 
 lockRankingAndExecuteTTC :: TransactionOptions NoPay -> Web3 HexString
-lockRankingAndExecuteTTC x1 = sendTx x1 (tagged Tuple0 :: LockRankingAndExecuteTTCFn)
+lockRankingAndExecuteTTC txOpts = sendTx txOpts (tagged Tuple0 :: FnLockRankingAndExecuteTTCInput)
 
-type OwnersArrayFn = Tagged (Proxy "ownersArray(uint256)") (Tuple1 (UIntN (D2 :& D5 :& DOne D6)))
+type FnOwnersArrayInput = Tagged "ownersArray(uint256)" (Tuple1 (UIntN 256))
+type FnOwnersArrayOutput = Tuple1 Address
 
 ownersArray
-  :: TransactionOptions NoPay
-  -> ChainCursor
-  -> UIntN (D2 :& D5 :& DOne D6)
-  -> Web3 (Either CallError Address)
-ownersArray x1 x2 x3 = ownersArray' x1 x2 x3
-  where
-  ownersArray'
-    :: TransactionOptions NoPay
-    -> ChainCursor
-    -> UIntN (D2 :& D5 :& DOne D6)
-    -> Web3 (Either CallError Address)
-  ownersArray' _x1 _x2 _x3 = map unTuple1 <$> call _x1 _x2 (tagged $ Tuple1 _x3 :: OwnersArrayFn)
+  :: TransactionOptions NoPay -> ChainCursor -> UIntN 256 -> Web3 (Either CallError Address)
+ownersArray txOpts chainCursor x = map unTuple1 <$> call txOpts chainCursor
+  (tagged (Tuple1 x) :: FnOwnersArrayInput)
 
-type PhaseFn = Tagged (Proxy "phase()") Tuple0
+type FnPhaseInput = Tagged "phase()" Tuple0
+type FnPhaseOutput = Tuple1 (UIntN 8)
 
-phase :: TransactionOptions NoPay -> ChainCursor -> Web3 (Either CallError (UIntN (DOne D8)))
-phase x1 x2 = map unTuple1 <$> call x1 x2 (tagged Tuple0 :: PhaseFn)
+phase :: TransactionOptions NoPay -> ChainCursor -> Web3 (Either CallError (UIntN 8))
+phase txOpts chainCursor = map unTuple1 <$> call txOpts chainCursor (tagged Tuple0 :: FnPhaseInput)
 
-type PreferenceListsArrayFn = Tagged (Proxy "preferenceListsArray(uint256,uint256)")
-  (Tuple2 (UIntN (D2 :& D5 :& DOne D6)) (UIntN (D2 :& D5 :& DOne D6)))
+type FnPreferenceListsArrayInput = Tagged "preferenceListsArray(uint256,uint256)"
+  (Tuple2 (Tagged "_1" (Identity (UIntN 256))) (Tagged "_2" (Identity (UIntN 256))))
+
+type FnPreferenceListsArrayOutput = Tuple1 (UIntN 256)
 
 preferenceListsArray
   :: TransactionOptions NoPay
   -> ChainCursor
-  -> UIntN (D2 :& D5 :& DOne D6)
-  -> UIntN (D2 :& D5 :& DOne D6)
-  -> Web3 (Either CallError (UIntN (D2 :& D5 :& DOne D6)))
-preferenceListsArray x1 x2 x3 x4 = preferenceListsArray' x1 x2 x3 x4
-  where
-  preferenceListsArray'
-    :: TransactionOptions NoPay
-    -> ChainCursor
-    -> UIntN (D2 :& D5 :& DOne D6)
-    -> UIntN (D2 :& D5 :& DOne D6)
-    -> Web3 (Either CallError (UIntN (D2 :& D5 :& DOne D6)))
-  preferenceListsArray' _x1 _x2 _x3 _x4 = map unTuple1 <$> call _x1 _x2
-    (tagged $ Tuple2 _x3 _x4 :: PreferenceListsArrayFn)
+  -> { _1 :: UIntN 256, _2 :: UIntN 256 }
+  -> Web3 (Either CallError (UIntN 256))
+preferenceListsArray txOpts chainCursor x = map unTuple1 <$> call txOpts chainCursor
+  (tagged (fromRecord x) :: FnPreferenceListsArrayInput)
 
-type ResetFn = Tagged (Proxy "reset()") Tuple0
+type FnResetInput = Tagged "reset()" Tuple0
+type FnResetOutput = Tuple0
 
 reset :: TransactionOptions NoPay -> Web3 HexString
-reset x1 = sendTx x1 (tagged Tuple0 :: ResetFn)
+reset txOpts = sendTx txOpts (tagged Tuple0 :: FnResetInput)
 
-type RetrieveTokenFn = Tagged (Proxy "retrieveToken()") Tuple0
+type FnRetrieveTokenInput = Tagged "retrieveToken()" Tuple0
+type FnRetrieveTokenOutput = Tuple0
 
 retrieveToken :: TransactionOptions NoPay -> Web3 HexString
-retrieveToken x1 = sendTx x1 (tagged Tuple0 :: RetrieveTokenFn)
+retrieveToken txOpts = sendTx txOpts (tagged Tuple0 :: FnRetrieveTokenInput)
 
-type SealTokensAndStartRankingFn = Tagged (Proxy "sealTokensAndStartRanking()") Tuple0
+type FnSealTokensAndStartRankingInput = Tagged "sealTokensAndStartRanking()" Tuple0
+type FnSealTokensAndStartRankingOutput = Tuple0
 
 sealTokensAndStartRanking :: TransactionOptions NoPay -> Web3 HexString
-sealTokensAndStartRanking x1 = sendTx x1 (tagged Tuple0 :: SealTokensAndStartRankingFn)
+sealTokensAndStartRanking txOpts = sendTx txOpts
+  (tagged Tuple0 :: FnSealTokensAndStartRankingInput)
 
-type StoreResultFn = Tagged (Proxy "storeResult(uint256[][])")
-  (Tuple1 (Tagged (Proxy "result") (Array (Array (UIntN (D2 :& D5 :& DOne D6))))))
+type FnStoreResultInput = Tagged "storeResult(uint256[][])"
+  (Tuple1 (Tagged "result" (Identity (Array (Array (UIntN 256))))))
+
+type FnStoreResultOutput = Tuple1 ByteString
 
 storeResult
-  :: TransactionOptions NoPay
-  -> { result :: Array (Array (UIntN (D2 :& D5 :& DOne D6))) }
-  -> Web3 HexString
-storeResult x1 x2 = uncurryFields x2 $ storeResult' x1
-  where
-  storeResult'
-    :: TransactionOptions NoPay
-    -> Tagged (Proxy "result") (Array (Array (UIntN (D2 :& D5 :& DOne D6))))
-    -> Web3 HexString
-  storeResult' _x1 _x2 = sendTx _x1 (tagged $ Tuple1 _x2 :: StoreResultFn)
+  :: TransactionOptions NoPay -> { result :: Array (Array (UIntN 256)) } -> Web3 HexString
+storeResult txOpts x = sendTx txOpts (tagged (fromRecord x) :: FnStoreResultInput)
 
-type SubmissionCounterFn = Tagged (Proxy "submissionCounter()") Tuple0
+type FnSubmissionCounterInput = Tagged "submissionCounter()" Tuple0
+type FnSubmissionCounterOutput = Tuple1 (UIntN 8)
 
-submissionCounter
-  :: TransactionOptions NoPay -> ChainCursor -> Web3 (Either CallError (UIntN (DOne D8)))
-submissionCounter x1 x2 = map unTuple1 <$> call x1 x2 (tagged Tuple0 :: SubmissionCounterFn)
+submissionCounter :: TransactionOptions NoPay -> ChainCursor -> Web3 (Either CallError (UIntN 8))
+submissionCounter txOpts chainCursor = map unTuple1 <$> call txOpts chainCursor
+  (tagged Tuple0 :: FnSubmissionCounterInput)
 
-type SubmitPreferencesFn = Tagged (Proxy "submitPreferences(uint256[])")
-  (Tuple1 (Tagged (Proxy "_preferenceList") (Array (UIntN (D2 :& D5 :& DOne D6)))))
+type FnSubmitPreferencesInput = Tagged "submitPreferences(uint256[])"
+  (Tuple1 (Tagged "_preferenceList" (Identity (Array (UIntN 256)))))
+
+type FnSubmitPreferencesOutput = Tuple0
 
 submitPreferences
-  :: TransactionOptions NoPay
-  -> { _preferenceList :: Array (UIntN (D2 :& D5 :& DOne D6)) }
-  -> Web3 HexString
-submitPreferences x1 x2 = uncurryFields x2 $ submitPreferences' x1
-  where
-  submitPreferences'
-    :: TransactionOptions NoPay
-    -> Tagged (Proxy "_preferenceList") (Array (UIntN (D2 :& D5 :& DOne D6)))
-    -> Web3 HexString
-  submitPreferences' _x1 _x2 = sendTx _x1 (tagged $ Tuple1 _x2 :: SubmitPreferencesFn)
+  :: TransactionOptions NoPay -> { _preferenceList :: Array (UIntN 256) } -> Web3 HexString
+submitPreferences txOpts x = sendTx txOpts (tagged (fromRecord x) :: FnSubmitPreferencesInput)
 
-type SubmitTokenFn = Tagged (Proxy "submitToken(uint256)")
-  (Tuple1 (Tagged (Proxy "_tokenId") (UIntN (D2 :& D5 :& DOne D6))))
+type FnSubmitTokenInput = Tagged "submitToken(uint256)"
+  (Tuple1 (Tagged "_tokenId" (Identity (UIntN 256))))
 
-submitToken
-  :: TransactionOptions NoPay -> { _tokenId :: UIntN (D2 :& D5 :& DOne D6) } -> Web3 HexString
-submitToken x1 x2 = uncurryFields x2 $ submitToken' x1
-  where
-  submitToken'
-    :: TransactionOptions NoPay
-    -> Tagged (Proxy "_tokenId") (UIntN (D2 :& D5 :& DOne D6))
-    -> Web3 HexString
-  submitToken' _x1 _x2 = sendTx _x1 (tagged $ Tuple1 _x2 :: SubmitTokenFn)
+type FnSubmitTokenOutput = Tuple0
 
-type TokenFn = Tagged (Proxy "token()") Tuple0
+submitToken :: TransactionOptions NoPay -> { _tokenId :: UIntN 256 } -> Web3 HexString
+submitToken txOpts x = sendTx txOpts (tagged (fromRecord x) :: FnSubmitTokenInput)
+
+type FnTokenInput = Tagged "token()" Tuple0
+type FnTokenOutput = Tuple1 Address
 
 token :: TransactionOptions NoPay -> ChainCursor -> Web3 (Either CallError Address)
-token x1 x2 = map unTuple1 <$> call x1 x2 (tagged Tuple0 :: TokenFn)
+token txOpts chainCursor = map unTuple1 <$> call txOpts chainCursor (tagged Tuple0 :: FnTokenInput)
 
-type TokenIdsArrayFn = Tagged (Proxy "tokenIdsArray(uint256)")
-  (Tuple1 (UIntN (D2 :& D5 :& DOne D6)))
+type FnTokenIdsArrayInput = Tagged "tokenIdsArray(uint256)" (Tuple1 (UIntN 256))
+type FnTokenIdsArrayOutput = Tuple1 (UIntN 256)
 
 tokenIdsArray
-  :: TransactionOptions NoPay
-  -> ChainCursor
-  -> UIntN (D2 :& D5 :& DOne D6)
-  -> Web3 (Either CallError (UIntN (D2 :& D5 :& DOne D6)))
-tokenIdsArray x1 x2 x3 = tokenIdsArray' x1 x2 x3
-  where
-  tokenIdsArray'
-    :: TransactionOptions NoPay
-    -> ChainCursor
-    -> UIntN (D2 :& D5 :& DOne D6)
-    -> Web3 (Either CallError (UIntN (D2 :& D5 :& DOne D6)))
-  tokenIdsArray' _x1 _x2 _x3 = map unTuple1 <$> call _x1 _x2
-    (tagged $ Tuple1 _x3 :: TokenIdsArrayFn)
+  :: TransactionOptions NoPay -> ChainCursor -> UIntN 256 -> Web3 (Either CallError (UIntN 256))
+tokenIdsArray txOpts chainCursor x = map unTuple1 <$> call txOpts chainCursor
+  (tagged (Tuple1 x) :: FnTokenIdsArrayInput)
 
-type TtcImageIdFn = Tagged (Proxy "ttcImageId()") Tuple0
+type FnTtcImageIdInput = Tagged "ttcImageId()" Tuple0
+type FnTtcImageIdOutput = Tuple1 (BytesN 32)
 
-ttcImageId
-  :: TransactionOptions NoPay -> ChainCursor -> Web3 (Either CallError (BytesN (D3 :& DOne D2)))
-ttcImageId x1 x2 = map unTuple1 <$> call x1 x2 (tagged Tuple0 :: TtcImageIdFn)
+ttcImageId :: TransactionOptions NoPay -> ChainCursor -> Web3 (Either CallError (BytesN 32))
+ttcImageId txOpts chainCursor = map unTuple1 <$> call txOpts chainCursor
+  (tagged Tuple0 :: FnTtcImageIdInput)

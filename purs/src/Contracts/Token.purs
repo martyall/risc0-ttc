@@ -6,25 +6,23 @@ import Data.Either (Either)
 import Data.Eq.Generic (genericEq)
 import Data.Functor.Tagged (Tagged, tagged)
 import Data.Generic.Rep (class Generic)
+import Data.Identity (Identity)
 import Data.Lens (set)
 import Data.Maybe (Maybe(..), fromJust)
 import Data.Newtype (class Newtype)
 import Data.Show.Generic (genericShow)
-import Network.Ethereum.Web3 (class EventFilter, _address, _topics, call, deployContract, sendTx)
-import Network.Ethereum.Web3.Contract.Internal (uncurryFields)
-import Network.Ethereum.Web3.Solidity (ByteString, BytesN, D2, D4, D5, D6, DOne, UIntN, Tuple0(..), Tuple1(..), Tuple2(..), Tuple3(..), Tuple4(..), class IndexedEvent, unTuple1)
-import Network.Ethereum.Web3.Solidity.Size (type (:&))
-import Network.Ethereum.Web3.Types (Address, CallError, ChainCursor, HexString, NoPay, TransactionOptions, Web3, defaultFilter, mkHexString)
+import Network.Ethereum.Web3 (Web3, class EventFilter, _address, _topics, call, deployContract, sendTx)
+import Network.Ethereum.Web3.Solidity (ByteString, BytesN, Tuple1, Tuple2, Tuple3, Tuple4, UIntN, Tuple0(..), class IndexedEvent, fromRecord, unTuple1)
+import Network.Ethereum.Web3.Types (Address, CallError, ChainCursor, HexString, NoPay, TransactionOptions, defaultFilter, mkHexString)
 import Partial.Unsafe (unsafePartial)
-import Type.Proxy (Proxy)
 
-type ConstructorFn = Tagged (Proxy Void) Tuple0
+type FnConstructorInput = Tagged Void Tuple0
+type FnConstructorOutput = Tuple0
 
 constructor :: TransactionOptions NoPay -> HexString -> Web3 HexString
-constructor x1 x2 = deployContract x1 x2 (tagged Tuple0 :: ConstructorFn)
+constructor bytecode txOpts = deployContract bytecode txOpts (tagged Tuple0 :: FnConstructorInput)
 
-newtype Approval = Approval
-  { owner :: Address, approved :: Address, tokenId :: UIntN (D2 :& D5 :& DOne D6) }
+newtype Approval = Approval { owner :: Address, approved :: Address, tokenId :: UIntN 256 }
 
 derive instance Newtype Approval _
 derive instance Generic Approval _
@@ -41,12 +39,13 @@ instance EventFilter Approval where
             "8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925"
         , Nothing
         , Nothing
+        , Nothing
         ]
     )
 
 instance
-  IndexedEvent ( Tuple3 (Tagged (Proxy "owner") Address) (Tagged (Proxy "approved") Address)
-        (Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6)))
+  IndexedEvent ( Tuple3 (Tagged "owner" (Identity Address)) (Tagged "approved" (Identity Address))
+        (Tagged "tokenId" (Identity (UIntN 256)))
     )
     Tuple0
     Approval where
@@ -74,13 +73,12 @@ instance EventFilter ApprovalForAll where
     )
 
 instance
-  IndexedEvent (Tuple2 (Tagged (Proxy "owner") Address) (Tagged (Proxy "operator") Address))
-    (Tuple1 (Tagged (Proxy "approved") Boolean))
+  IndexedEvent (Tuple2 (Tagged "owner" (Identity Address)) (Tagged "operator" (Identity Address)))
+    (Tuple1 (Tagged "approved" (Identity Boolean)))
     ApprovalForAll where
   isAnonymous _ = false
 
-newtype Transfer = Transfer
-  { from :: Address, to :: Address, tokenId :: UIntN (D2 :& D5 :& DOne D6) }
+newtype Transfer = Transfer { from :: Address, to :: Address, tokenId :: UIntN 256 }
 
 derive instance Newtype Transfer _
 derive instance Generic Transfer _
@@ -97,234 +95,169 @@ instance EventFilter Transfer where
             "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
         , Nothing
         , Nothing
+        , Nothing
         ]
     )
 
 instance
-  IndexedEvent ( Tuple3 (Tagged (Proxy "from") Address) (Tagged (Proxy "to") Address)
-        (Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6)))
+  IndexedEvent ( Tuple3 (Tagged "from" (Identity Address)) (Tagged "to" (Identity Address))
+        (Tagged "tokenId" (Identity (UIntN 256)))
     )
     Tuple0
     Transfer where
   isAnonymous _ = false
 
-type ApproveFn = Tagged (Proxy "approve(address,uint256)")
-  (Tuple2 (Tagged (Proxy "to") Address) (Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6))))
+type FnApproveInput = Tagged "approve(address,uint256)"
+  (Tuple2 (Tagged "to" (Identity Address)) (Tagged "tokenId" (Identity (UIntN 256))))
 
-approve
-  :: TransactionOptions NoPay
-  -> { to :: Address, tokenId :: UIntN (D2 :& D5 :& DOne D6) }
-  -> Web3 HexString
-approve x1 x2 = uncurryFields x2 $ approve' x1
-  where
-  approve'
-    :: TransactionOptions NoPay
-    -> Tagged (Proxy "to") Address
-    -> Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6))
-    -> Web3 HexString
-  approve' _x1 _x2 _x3 = sendTx _x1 (tagged $ Tuple2 _x2 _x3 :: ApproveFn)
+type FnApproveOutput = Tuple0
 
-type BalanceOfFn = Tagged (Proxy "balanceOf(address)") (Tuple1 (Tagged (Proxy "owner") Address))
+approve :: TransactionOptions NoPay -> { to :: Address, tokenId :: UIntN 256 } -> Web3 HexString
+approve txOpts x = sendTx txOpts (tagged (fromRecord x) :: FnApproveInput)
+
+type FnBalanceOfInput = Tagged "balanceOf(address)" (Tuple1 (Tagged "owner" (Identity Address)))
+type FnBalanceOfOutput = Tuple1 (UIntN 256)
 
 balanceOf
   :: TransactionOptions NoPay
   -> ChainCursor
   -> { owner :: Address }
-  -> Web3 (Either CallError (UIntN (D2 :& D5 :& DOne D6)))
-balanceOf x1 x2 x3 = uncurryFields x3 $ balanceOf' x1 x2
-  where
-  balanceOf'
-    :: TransactionOptions NoPay
-    -> ChainCursor
-    -> Tagged (Proxy "owner") Address
-    -> Web3 (Either CallError (UIntN (D2 :& D5 :& DOne D6)))
-  balanceOf' _x1 _x2 _x3 = map unTuple1 <$> call _x1 _x2 (tagged $ Tuple1 _x3 :: BalanceOfFn)
+  -> Web3 (Either CallError (UIntN 256))
+balanceOf txOpts chainCursor x = map unTuple1 <$> call txOpts chainCursor
+  (tagged (fromRecord x) :: FnBalanceOfInput)
 
-type GetApprovedFn = Tagged (Proxy "getApproved(uint256)")
-  (Tuple1 (Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6))))
+type FnGetApprovedInput = Tagged "getApproved(uint256)"
+  (Tuple1 (Tagged "tokenId" (Identity (UIntN 256))))
+
+type FnGetApprovedOutput = Tuple1 Address
 
 getApproved
   :: TransactionOptions NoPay
   -> ChainCursor
-  -> { tokenId :: UIntN (D2 :& D5 :& DOne D6) }
+  -> { tokenId :: UIntN 256 }
   -> Web3 (Either CallError Address)
-getApproved x1 x2 x3 = uncurryFields x3 $ getApproved' x1 x2
-  where
-  getApproved'
-    :: TransactionOptions NoPay
-    -> ChainCursor
-    -> Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6))
-    -> Web3 (Either CallError Address)
-  getApproved' _x1 _x2 _x3 = map unTuple1 <$> call _x1 _x2 (tagged $ Tuple1 _x3 :: GetApprovedFn)
+getApproved txOpts chainCursor x = map unTuple1 <$> call txOpts chainCursor
+  (tagged (fromRecord x) :: FnGetApprovedInput)
 
-type IsApprovedForAllFn = Tagged (Proxy "isApprovedForAll(address,address)")
-  (Tuple2 (Tagged (Proxy "owner") Address) (Tagged (Proxy "operator") Address))
+type FnIsApprovedForAllInput = Tagged "isApprovedForAll(address,address)"
+  (Tuple2 (Tagged "owner" (Identity Address)) (Tagged "operator" (Identity Address)))
+
+type FnIsApprovedForAllOutput = Tuple1 Boolean
 
 isApprovedForAll
   :: TransactionOptions NoPay
   -> ChainCursor
   -> { owner :: Address, operator :: Address }
   -> Web3 (Either CallError Boolean)
-isApprovedForAll x1 x2 x3 = uncurryFields x3 $ isApprovedForAll' x1 x2
-  where
-  isApprovedForAll'
-    :: TransactionOptions NoPay
-    -> ChainCursor
-    -> Tagged (Proxy "owner") Address
-    -> Tagged (Proxy "operator") Address
-    -> Web3 (Either CallError Boolean)
-  isApprovedForAll' _x1 _x2 _x3 _x4 = map unTuple1 <$> call _x1 _x2
-    (tagged $ Tuple2 _x3 _x4 :: IsApprovedForAllFn)
+isApprovedForAll txOpts chainCursor x = map unTuple1 <$> call txOpts chainCursor
+  (tagged (fromRecord x) :: FnIsApprovedForAllInput)
 
-type MintTokenFn = Tagged (Proxy "mintToken(address,uint256)")
-  (Tuple2 (Tagged (Proxy "to") Address) (Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6))))
+type FnMintTokenInput = Tagged "mintToken(address,uint256)"
+  (Tuple2 (Tagged "to" (Identity Address)) (Tagged "tokenId" (Identity (UIntN 256))))
 
-mintToken
-  :: TransactionOptions NoPay
-  -> { to :: Address, tokenId :: UIntN (D2 :& D5 :& DOne D6) }
-  -> Web3 HexString
-mintToken x1 x2 = uncurryFields x2 $ mintToken' x1
-  where
-  mintToken'
-    :: TransactionOptions NoPay
-    -> Tagged (Proxy "to") Address
-    -> Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6))
-    -> Web3 HexString
-  mintToken' _x1 _x2 _x3 = sendTx _x1 (tagged $ Tuple2 _x2 _x3 :: MintTokenFn)
+type FnMintTokenOutput = Tuple0
 
-type NameFn = Tagged (Proxy "name()") Tuple0
+mintToken :: TransactionOptions NoPay -> { to :: Address, tokenId :: UIntN 256 } -> Web3 HexString
+mintToken txOpts x = sendTx txOpts (tagged (fromRecord x) :: FnMintTokenInput)
+
+type FnNameInput = Tagged "name()" Tuple0
+type FnNameOutput = Tuple1 String
 
 name :: TransactionOptions NoPay -> ChainCursor -> Web3 (Either CallError String)
-name x1 x2 = map unTuple1 <$> call x1 x2 (tagged Tuple0 :: NameFn)
+name txOpts chainCursor = map unTuple1 <$> call txOpts chainCursor (tagged Tuple0 :: FnNameInput)
 
-type OwnerOfFn = Tagged (Proxy "ownerOf(uint256)")
-  (Tuple1 (Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6))))
+type FnOwnerOfInput = Tagged "ownerOf(uint256)" (Tuple1 (Tagged "tokenId" (Identity (UIntN 256))))
+type FnOwnerOfOutput = Tuple1 Address
 
 ownerOf
   :: TransactionOptions NoPay
   -> ChainCursor
-  -> { tokenId :: UIntN (D2 :& D5 :& DOne D6) }
+  -> { tokenId :: UIntN 256 }
   -> Web3 (Either CallError Address)
-ownerOf x1 x2 x3 = uncurryFields x3 $ ownerOf' x1 x2
-  where
-  ownerOf'
-    :: TransactionOptions NoPay
-    -> ChainCursor
-    -> Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6))
-    -> Web3 (Either CallError Address)
-  ownerOf' _x1 _x2 _x3 = map unTuple1 <$> call _x1 _x2 (tagged $ Tuple1 _x3 :: OwnerOfFn)
+ownerOf txOpts chainCursor x = map unTuple1 <$> call txOpts chainCursor
+  (tagged (fromRecord x) :: FnOwnerOfInput)
 
-type SafeTransferFrom4Fn = Tagged (Proxy "safeTransferFrom4(address,address,uint256,bytes)")
-  ( Tuple4 (Tagged (Proxy "from") Address) (Tagged (Proxy "to") Address)
-      (Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6)))
-      (Tagged (Proxy "data") ByteString)
+type FnSafeTransferFromb88d4fdeInput = Tagged
+  "safeTransferFromb88d4fde(address,address,uint256,bytes)"
+  ( Tuple4 (Tagged "from" (Identity Address)) (Tagged "to" (Identity Address))
+      (Tagged "tokenId" (Identity (UIntN 256)))
+      (Tagged "data" (Identity ByteString))
   )
 
-safeTransferFrom4
-  :: TransactionOptions NoPay
-  -> { from :: Address, to :: Address, tokenId :: UIntN (D2 :& D5 :& DOne D6), data :: ByteString }
-  -> Web3 HexString
-safeTransferFrom4 x1 x2 = uncurryFields x2 $ safeTransferFrom4' x1
-  where
-  safeTransferFrom4'
-    :: TransactionOptions NoPay
-    -> Tagged (Proxy "from") Address
-    -> Tagged (Proxy "to") Address
-    -> Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6))
-    -> Tagged (Proxy "data") ByteString
-    -> Web3 HexString
-  safeTransferFrom4' _x1 _x2 _x3 _x4 _x5 = sendTx _x1
-    (tagged $ Tuple4 _x2 _x3 _x4 _x5 :: SafeTransferFrom4Fn)
+type FnSafeTransferFromb88d4fdeOutput = Tuple0
 
-type SafeTransferFrom3Fn = Tagged (Proxy "safeTransferFrom3(address,address,uint256)")
-  ( Tuple3 (Tagged (Proxy "from") Address) (Tagged (Proxy "to") Address)
-      (Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6)))
+safeTransferFromb88d4fde
+  :: TransactionOptions NoPay
+  -> { from :: Address, to :: Address, tokenId :: UIntN 256, data :: ByteString }
+  -> Web3 HexString
+safeTransferFromb88d4fde txOpts x = sendTx txOpts
+  (tagged (fromRecord x) :: FnSafeTransferFromb88d4fdeInput)
+
+type FnSafeTransferFrom42842e0eInput = Tagged "safeTransferFrom42842e0e(address,address,uint256)"
+  ( Tuple3 (Tagged "from" (Identity Address)) (Tagged "to" (Identity Address))
+      (Tagged "tokenId" (Identity (UIntN 256)))
   )
 
-safeTransferFrom3
-  :: TransactionOptions NoPay
-  -> { from :: Address, to :: Address, tokenId :: UIntN (D2 :& D5 :& DOne D6) }
-  -> Web3 HexString
-safeTransferFrom3 x1 x2 = uncurryFields x2 $ safeTransferFrom3' x1
-  where
-  safeTransferFrom3'
-    :: TransactionOptions NoPay
-    -> Tagged (Proxy "from") Address
-    -> Tagged (Proxy "to") Address
-    -> Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6))
-    -> Web3 HexString
-  safeTransferFrom3' _x1 _x2 _x3 _x4 = sendTx _x1
-    (tagged $ Tuple3 _x2 _x3 _x4 :: SafeTransferFrom3Fn)
+type FnSafeTransferFrom42842e0eOutput = Tuple0
 
-type SetApprovalForAllFn = Tagged (Proxy "setApprovalForAll(address,bool)")
-  (Tuple2 (Tagged (Proxy "operator") Address) (Tagged (Proxy "approved") Boolean))
+safeTransferFrom42842e0e
+  :: TransactionOptions NoPay
+  -> { from :: Address, to :: Address, tokenId :: UIntN 256 }
+  -> Web3 HexString
+safeTransferFrom42842e0e txOpts x = sendTx txOpts
+  (tagged (fromRecord x) :: FnSafeTransferFrom42842e0eInput)
+
+type FnSetApprovalForAllInput = Tagged "setApprovalForAll(address,bool)"
+  (Tuple2 (Tagged "operator" (Identity Address)) (Tagged "approved" (Identity Boolean)))
+
+type FnSetApprovalForAllOutput = Tuple0
 
 setApprovalForAll
   :: TransactionOptions NoPay -> { operator :: Address, approved :: Boolean } -> Web3 HexString
-setApprovalForAll x1 x2 = uncurryFields x2 $ setApprovalForAll' x1
-  where
-  setApprovalForAll'
-    :: TransactionOptions NoPay
-    -> Tagged (Proxy "operator") Address
-    -> Tagged (Proxy "approved") Boolean
-    -> Web3 HexString
-  setApprovalForAll' _x1 _x2 _x3 = sendTx _x1 (tagged $ Tuple2 _x2 _x3 :: SetApprovalForAllFn)
+setApprovalForAll txOpts x = sendTx txOpts (tagged (fromRecord x) :: FnSetApprovalForAllInput)
 
-type SupportsInterfaceFn = Tagged (Proxy "supportsInterface(bytes4)")
-  (Tuple1 (Tagged (Proxy "interfaceId") (BytesN (DOne D4))))
+type FnSupportsInterfaceInput = Tagged "supportsInterface(bytes4)"
+  (Tuple1 (Tagged "interfaceId" (Identity (BytesN 4))))
+
+type FnSupportsInterfaceOutput = Tuple1 Boolean
 
 supportsInterface
   :: TransactionOptions NoPay
   -> ChainCursor
-  -> { interfaceId :: BytesN (DOne D4) }
+  -> { interfaceId :: BytesN 4 }
   -> Web3 (Either CallError Boolean)
-supportsInterface x1 x2 x3 = uncurryFields x3 $ supportsInterface' x1 x2
-  where
-  supportsInterface'
-    :: TransactionOptions NoPay
-    -> ChainCursor
-    -> Tagged (Proxy "interfaceId") (BytesN (DOne D4))
-    -> Web3 (Either CallError Boolean)
-  supportsInterface' _x1 _x2 _x3 = map unTuple1 <$> call _x1 _x2
-    (tagged $ Tuple1 _x3 :: SupportsInterfaceFn)
+supportsInterface txOpts chainCursor x = map unTuple1 <$> call txOpts chainCursor
+  (tagged (fromRecord x) :: FnSupportsInterfaceInput)
 
-type SymbolFn = Tagged (Proxy "symbol()") Tuple0
+type FnSymbolInput = Tagged "symbol()" Tuple0
+type FnSymbolOutput = Tuple1 String
 
 symbol :: TransactionOptions NoPay -> ChainCursor -> Web3 (Either CallError String)
-symbol x1 x2 = map unTuple1 <$> call x1 x2 (tagged Tuple0 :: SymbolFn)
+symbol txOpts chainCursor = map unTuple1 <$> call txOpts chainCursor
+  (tagged Tuple0 :: FnSymbolInput)
 
-type TokenURIFn = Tagged (Proxy "tokenURI(uint256)")
-  (Tuple1 (Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6))))
+type FnTokenURIInput = Tagged "tokenURI(uint256)"
+  (Tuple1 (Tagged "tokenId" (Identity (UIntN 256))))
+
+type FnTokenURIOutput = Tuple1 String
 
 tokenURI
   :: TransactionOptions NoPay
   -> ChainCursor
-  -> { tokenId :: UIntN (D2 :& D5 :& DOne D6) }
+  -> { tokenId :: UIntN 256 }
   -> Web3 (Either CallError String)
-tokenURI x1 x2 x3 = uncurryFields x3 $ tokenURI' x1 x2
-  where
-  tokenURI'
-    :: TransactionOptions NoPay
-    -> ChainCursor
-    -> Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6))
-    -> Web3 (Either CallError String)
-  tokenURI' _x1 _x2 _x3 = map unTuple1 <$> call _x1 _x2 (tagged $ Tuple1 _x3 :: TokenURIFn)
+tokenURI txOpts chainCursor x = map unTuple1 <$> call txOpts chainCursor
+  (tagged (fromRecord x) :: FnTokenURIInput)
 
-type TransferFromFn = Tagged (Proxy "transferFrom(address,address,uint256)")
-  ( Tuple3 (Tagged (Proxy "from") Address) (Tagged (Proxy "to") Address)
-      (Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6)))
+type FnTransferFromInput = Tagged "transferFrom(address,address,uint256)"
+  ( Tuple3 (Tagged "from" (Identity Address)) (Tagged "to" (Identity Address))
+      (Tagged "tokenId" (Identity (UIntN 256)))
   )
+
+type FnTransferFromOutput = Tuple0
 
 transferFrom
   :: TransactionOptions NoPay
-  -> { from :: Address, to :: Address, tokenId :: UIntN (D2 :& D5 :& DOne D6) }
+  -> { from :: Address, to :: Address, tokenId :: UIntN 256 }
   -> Web3 HexString
-transferFrom x1 x2 = uncurryFields x2 $ transferFrom' x1
-  where
-  transferFrom'
-    :: TransactionOptions NoPay
-    -> Tagged (Proxy "from") Address
-    -> Tagged (Proxy "to") Address
-    -> Tagged (Proxy "tokenId") (UIntN (D2 :& D5 :& DOne D6))
-    -> Web3 HexString
-  transferFrom' _x1 _x2 _x3 _x4 = sendTx _x1 (tagged $ Tuple3 _x2 _x3 _x4 :: TransferFromFn)
+transferFrom txOpts x = sendTx txOpts (tagged (fromRecord x) :: FnTransferFromInput)
