@@ -112,16 +112,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bonsai-starter-methods-guest"
-version = "0.1.0"
-dependencies = [
- "ethabi",
- "radium",
- "risc0-zkvm",
- "ttc",
-]
-
-[[package]]
 name = "byte-slice-cast"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -776,9 +766,9 @@ checksum = "f7012b1bbb0719e1097c47611d3898568c546d597c2e74d66f6087edd5233ff4"
 
 [[package]]
 name = "linux-raw-sys"
-version = "0.4.5"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57bcfdad1b858c2db7c38303a6d2ad4dfaf5eb53dfeb0910128b2c26d6158503"
+checksum = "45786cec4d5e54a224b15cb9f06751883103a27c19c93eda09b0b4f5f08fefac"
 
 [[package]]
 name = "log"
@@ -1032,8 +1022,9 @@ dependencies = [
 
 [[package]]
 name = "radium"
-version = "0.7.1"
-source = "git+https://github.com/bitvecto-rs/radium?rev=723bed5abd75994ee4b7221b8b12c9f4e77ce408#723bed5abd75994ee4b7221b8b12c9f4e77ce408"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
 
 [[package]]
 name = "rand"
@@ -1115,8 +1106,9 @@ dependencies = [
 
 [[package]]
 name = "risc0-binfmt"
-version = "0.17.0"
-source = "git+https://github.com/risc0/risc0?rev=da5bc39089c6dba8b03510837f1c7363ed3cc8b7#da5bc39089c6dba8b03510837f1c7363ed3cc8b7"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ede27631e6b2a946a43db812063453c9701d5d2544d82f9abec2cc12574ebb8e"
 dependencies = [
  "anyhow",
  "elf",
@@ -1128,8 +1120,9 @@ dependencies = [
 
 [[package]]
 name = "risc0-circuit-rv32im"
-version = "0.17.0"
-source = "git+https://github.com/risc0/risc0?rev=da5bc39089c6dba8b03510837f1c7363ed3cc8b7#da5bc39089c6dba8b03510837f1c7363ed3cc8b7"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68e00222152fdc94cacc9b6682b5c0cbe8138f1ee82e80c24a64d9ad2c6d7415"
 dependencies = [
  "anyhow",
  "log",
@@ -1141,8 +1134,9 @@ dependencies = [
 
 [[package]]
 name = "risc0-core"
-version = "0.17.0"
-source = "git+https://github.com/risc0/risc0?rev=da5bc39089c6dba8b03510837f1c7363ed3cc8b7#da5bc39089c6dba8b03510837f1c7363ed3cc8b7"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08605aec93ea22ed83f7f81f42e2d7287a5b0c749d8671f94de9d5994020045c"
 dependencies = [
  "bytemuck",
  "rand_core",
@@ -1150,8 +1144,9 @@ dependencies = [
 
 [[package]]
 name = "risc0-zkp"
-version = "0.17.0"
-source = "git+https://github.com/risc0/risc0?rev=da5bc39089c6dba8b03510837f1c7363ed3cc8b7#da5bc39089c6dba8b03510837f1c7363ed3cc8b7"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28166926bb177824939f4e91083198f9f3da8137aeac32361bd34548c0526fa5"
 dependencies = [
  "anyhow",
  "blake2",
@@ -1170,8 +1165,9 @@ dependencies = [
 
 [[package]]
 name = "risc0-zkvm"
-version = "0.17.0"
-source = "git+https://github.com/risc0/risc0?rev=da5bc39089c6dba8b03510837f1c7363ed3cc8b7#da5bc39089c6dba8b03510837f1c7363ed3cc8b7"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec972152bcaa1a2967e412e22a84f6e2984a95c701bcc7943ca8ca10126ee0a2"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -1188,13 +1184,15 @@ dependencies = [
  "risc0-zkp",
  "risc0-zkvm-platform",
  "serde",
+ "tempfile",
  "tracing",
 ]
 
 [[package]]
 name = "risc0-zkvm-platform"
-version = "0.17.0"
-source = "git+https://github.com/risc0/risc0?rev=da5bc39089c6dba8b03510837f1c7363ed3cc8b7#da5bc39089c6dba8b03510837f1c7363ed3cc8b7"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8524b46783b58b00e9b2a4712e837093c975b23cf25bfaf99e1cf69e9011bf6b"
 
 [[package]]
 name = "rlp"
@@ -1226,9 +1224,9 @@ checksum = "3e75f6a532d0fd9f7f13144f392b6ad56a32696bfcd9c78f797f16bbb6f072d6"
 
 [[package]]
 name = "rustix"
-version = "0.38.8"
+version = "0.38.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19ed4fa021d81c8392ce04db050a3da9a60299050b7ae1cf482d862b54a7218f"
+checksum = "d7db8590df6dfcd144d22afd1b83b36c21a18d7cbc1dc4bb5295a8712e9eb662"
 dependencies = [
  "bitflags 2.4.0",
  "errno",
@@ -1583,6 +1581,16 @@ dependencies = [
  "ethers-core",
  "hex",
  "petgraph",
+]
+
+[[package]]
+name = "ttc-methods-guest"
+version = "0.1.0"
+dependencies = [
+ "ethabi",
+ "hex",
+ "risc0-zkvm",
+ "ttc",
 ]
 
 [[package]]
