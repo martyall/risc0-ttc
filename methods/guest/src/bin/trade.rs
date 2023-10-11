@@ -2,7 +2,6 @@
 
 use risc0_zkvm::guest::env;
 use ttc::{self, ttc_trading::contract};
-use hex::FromHex;
 
 risc0_zkvm::guest::entry!(main);
 
