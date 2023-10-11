@@ -14,3 +14,4 @@ ethers-contract = { version = "2.0", default-features = false, features = ["abig
 ethers-core = { version = "2.0", default-features = false }
 hex = "0.4"
 petgraph = { version = "0.6.3", default-features = false }
+serde = "1.0"

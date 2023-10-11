@@ -27,7 +27,7 @@ rustflags = [
     "-Dunused_parens",
     "-Dwhile_true",
 ]
-rustc-wrapper = "/home/martin/.cargo/bin/sccache"
+# rustc-wrapper = "/home/martin/.cargo/bin/sccache"
 
 
 [net]

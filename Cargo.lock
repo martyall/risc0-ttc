@@ -1462,9 +1462,11 @@ dependencies = [
 name = "host"
 version = "0.1.0"
 dependencies = [
+ "ethers-core",
  "hex",
  "risc0-zkvm",
  "serde",
+ "ttc",
  "ttc-methods",
 ]
 
@@ -3334,6 +3336,7 @@ dependencies = [
  "ethers-core",
  "hex",
  "petgraph",
+ "serde",
 ]
 
 [[package]]

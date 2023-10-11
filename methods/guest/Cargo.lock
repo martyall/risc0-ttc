@@ -1581,6 +1581,7 @@ dependencies = [
  "ethers-core",
  "hex",
  "petgraph",
+ "serde",
 ]
 
 [[package]]
