@@ -1463,7 +1463,6 @@ name = "host"
 version = "0.1.0"
 dependencies = [
  "ethers-core",
- "hex",
  "risc0-zkvm",
  "serde",
  "ttc",
