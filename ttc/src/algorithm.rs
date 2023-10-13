@@ -177,31 +177,35 @@ where
         Ok(Cycle { values: cycle })
     }
 
+    fn remove_node(&mut self, v: &V) {
+      let ix = self
+          .graph
+          .node_indices()
+          .find(|&index| self.graph[index] == *v)
+          .unwrap();
+      let mut edges_to_add = vec![];
+      for n in self.graph.neighbors_directed(ix, Direction::Incoming) {
+          let preferred_item = self.prefs.preferred_item(self.graph[n]);
+          let preferred_ix = self
+              .graph
+              .node_indices()
+              .find(|&index| self.graph[index] == preferred_item)
+              .unwrap();
+          edges_to_add.push((n, preferred_ix));
+      }
+      for e in edges_to_add {
+          self.graph.add_edge(e.0, e.1, ());
+      }
+      self.graph.remove_node(ix);
+    }
+
     pub fn solve_preferences(&mut self) -> Result<Solution<V>, TTCError> {
         let mut res = Vec::new();
         while self.graph.node_count() > 0 {
             let cycle = self.find_cycle()?;
             self.prefs.remove_prefs(&cycle.values);
             for v in &cycle.values {
-                let ix = self
-                    .graph
-                    .node_indices()
-                    .find(|&index| self.graph[index] == *v)
-                    .unwrap();
-                let mut edges_to_add = vec![];
-                for n in self.graph.neighbors_directed(ix, Direction::Incoming) {
-                    let preferred_item = self.prefs.preferred_item(self.graph[n]);
-                    let preferred_ix = self
-                        .graph
-                        .node_indices()
-                        .find(|&index| self.graph[index] == preferred_item)
-                        .unwrap();
-                    edges_to_add.push((n, preferred_ix));
-                }
-                for e in edges_to_add {
-                    self.graph.add_edge(e.0, e.1, ());
-                }
-                self.graph.remove_node(ix);
+                self.remove_node(v);
             }
             res.push(cycle);
         }

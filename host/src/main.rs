@@ -5,11 +5,10 @@ use risc0_zkvm::{
     ExecutorEnv, Receipt,
 };
 use ttc::ttc_trading::contract;
-use hex;
 use ethers_core::types::U256;
 
 
-fn provably_ttc(input: &contract::TokenDetailsEmittedFilter) -> Receipt {
+fn provably_ttc(input: &contract::TradeData) -> Receipt {
       let env = ExecutorEnv::builder()
         .add_input(&to_vec(input).unwrap())
         .build()
@@ -21,7 +20,7 @@ fn provably_ttc(input: &contract::TokenDetailsEmittedFilter) -> Receipt {
 
 fn main() {
 
-    let input = contract::TokenDetailsEmittedFilter {
+    let input = contract::TradeData {
         token_ids: [U256::from(571628), U256::from(207230), U256::from(188615), U256::from(779527), U256::from(634530), U256::from(366674)],
         preference_lists: 
               [ vec![U256::from(188615),U256::from(634530),U256::from(779527)]
@@ -37,7 +36,7 @@ fn main() {
     
     receipt.verify(TRADE_ID).expect("failed to verify receipt");
 
-    let call: contract::StoreResultCall = from_slice(&receipt.journal).expect("Journal should contain a StoreResultsCall object");
+    let call: contract::TradeResult = from_slice(&receipt.journal).expect("Journal should contain a StoreResultsCall object");
 
     println!("Hello, world! I know the factors of {:?}, and I can prove it!", call);
 
